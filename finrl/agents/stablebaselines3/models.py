@@ -7,7 +7,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from stable_baselines3.ppo_recurrent import RecurrentPPO
+from finrl.agents.stablebaselines3.stable_baselines3.ppo_recurrent.ppo_recurrent import RecurrentPPO
 from stable_baselines3.a2c import A2C
 from stable_baselines3.ddpg import DDPG
 from stable_baselines3.ppo import PPO

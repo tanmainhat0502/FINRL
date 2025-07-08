@@ -108,8 +108,7 @@ class DRLAgent:
         policy_kwargs=None,
         model_kwargs=None,
         verbose=1,
-        seed=None,
-        tensorboard_log=None,
+        seed=None
     ):
         if model_name not in MODELS:
             raise ValueError(
@@ -128,7 +127,6 @@ class DRLAgent:
         return MODELS[model_name](
             policy=policy,
             env=self.env,
-            tensorboard_log=tensorboard_log,
             verbose=verbose,
             policy_kwargs=policy_kwargs,
             seed=seed,

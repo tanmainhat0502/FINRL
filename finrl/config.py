@@ -58,20 +58,37 @@ ERL_PARAMS = {
     "eval_times": 64,  # bug fix:KeyError: 'eval_times' line 68, in get_model model.eval_times = model_kwargs["eval_times"]
 }
 RLlib_PARAMS = {"lr": 5e-5, "train_batch_size": 500, "gamma": 0.99}
-
+# Thêm RE_PPO_PARAMS
 RE_PPO_PARAMS = {
-    "n_steps": 2048,
-    "ent_coef": 0.01,
-    "learning_rate": 0.00025,
-    "batch_size": 64,
+    "learning_rate": 0.0003,
+    "n_steps": 128,
+    "batch_size": 128,
     "n_epochs": 10,
     "gamma": 0.99,
     "gae_lambda": 0.95,
     "clip_range": 0.2,
+    "clip_range_vf": None,
     "normalize_advantage": True,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
     "max_grad_norm": 0.5,
+    "use_sde": False,
+    "sde_sample_freq": -1,
+    "target_kl": None,
+    "stats_window_size": 100,
+    "tensorboard_log": None,
+    "policy_kwargs": {
+        "net_arch": {"pi": [64, 64], "vf": [64, 64]},
+        "lstm_hidden_size": 256,
+        "n_lstm_layers": 1,
+        "shared_lstm": False,
+        "enable_critic_lstm": True,
+        "lstm_kwargs": {"dropout": 0.1},
+    },
+    "verbose": 0,
+    "seed": None,
+    "device": "auto",
 }
-
 # Possible time zones
 TIME_ZONE_SHANGHAI = "Asia/Shanghai"  # Hang Seng HSI, SSE, CSI
 TIME_ZONE_USEASTERN = "US/Eastern"  # Dow, Nasdaq, SP

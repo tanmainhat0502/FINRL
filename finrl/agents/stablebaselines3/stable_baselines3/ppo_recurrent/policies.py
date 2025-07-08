@@ -1,4 +1,4 @@
-from stable_baselines3.common.recurrent.policies import (
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.policies import (
     RecurrentActorCriticCnnPolicy,
     RecurrentActorCriticPolicy,
     RecurrentMultiInputActorCriticPolicy,

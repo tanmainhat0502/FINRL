@@ -8,7 +8,7 @@ from gymnasium import spaces
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.vec_env import VecNormalize
 
-from stable_baselines3.common.recurrent.type_aliases import (
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import (
     RecurrentDictRolloutBufferSamples,
     RecurrentRolloutBufferSamples,
     RNNStates,

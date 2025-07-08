@@ -15,8 +15,7 @@ from stable_baselines3.common.torch_layers import (
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
 from torch import nn
-
-from stable_baselines3.common.recurrent.type_aliases import RNNStates
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import RNNStates
 
 
 class RecurrentActorCriticPolicy(ActorCriticPolicy):

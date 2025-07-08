@@ -13,9 +13,9 @@ from stable_baselines3.common.utils import FloatSchedule, explained_variance, ob
 from stable_baselines3.common.vec_env import VecEnv
 
 
-from stable_baselines3.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
-from stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
-from stable_baselines3.common.recurrent.type_aliases import RNNStates
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import RNNStates
 from .policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
 
 SelfRecurrentPPO = TypeVar("SelfRecurrentPPO", bound="RecurrentPPO")

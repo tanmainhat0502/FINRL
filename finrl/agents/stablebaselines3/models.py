@@ -18,7 +18,7 @@ from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
+from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
 
 from finrl import config
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv

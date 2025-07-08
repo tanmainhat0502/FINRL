@@ -465,14 +465,14 @@ class DRLEnsembleAgent:
         return model, sharpe_list, sharpe
 
     def run_ensemble_strategy(
-        self,
-        A2C_model_kwargs,
-        PPO_model_kwargs,
-        DDPG_model_kwargs,
-        SAC_model_kwargs,
-        TD3_model_kwargs,
-        Recurrent_model_kwargs,
-        timesteps_dict,
+    self,
+    A2C_model_kwargs=None,
+    PPO_model_kwargs=None,
+    DDPG_model_kwargs=None,
+    SAC_model_kwargs=None,
+    TD3_model_kwargs=None,
+    Recurrent_model_kwargs=None,
+    timesteps_dict=None,
     ):
         # Model Parameters
         kwargs = {

@@ -16,7 +16,7 @@ from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
 from stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
 from stable_baselines3.common.recurrent.type_aliases import RNNStates
-from stable_baselines3.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
+from .policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
 
 SelfRecurrentPPO = TypeVar("SelfRecurrentPPO", bound="RecurrentPPO")
 

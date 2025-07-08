@@ -223,7 +223,7 @@ class DRLEnsembleAgent:
     def get_model(
         model_name,
         env,
-        policy="MlpPolicy",
+        policy=None,
         policy_kwargs=None,
         model_kwargs=None,
         seed=None,
@@ -239,6 +239,16 @@ class DRLEnsembleAgent:
         else:
             temp_model_kwargs = model_kwargs.copy()
 
+        # Xác định policy dựa trên model_name
+        if model_name == "re_ppo":
+            policy = "RecurrentActorCriticPolicy" if policy is None else policy
+        else:
+            policy = "MlpPolicy" if policy is None else policy
+
+        # Loại bỏ policy_kwargs nếu không phải re_ppo hoặc không hợp lệ
+        if model_name != "re_ppo" and "policy_kwargs" in temp_model_kwargs:
+            temp_model_kwargs.pop("policy_kwargs", None)
+
         if "action_noise" in temp_model_kwargs:
             n_actions = env.action_space.shape[-1]
             temp_model_kwargs["action_noise"] = NOISE[
@@ -249,7 +259,7 @@ class DRLEnsembleAgent:
             policy=policy,
             env=env,
             verbose=verbose,
-            policy_kwargs=policy_kwargs,
+            policy_kwargs=policy_kwargs if model_name == "re_ppo" else None,
             seed=seed,
             **temp_model_kwargs,
         )
@@ -889,7 +899,7 @@ class DRLEnsembleAgent:
         end = time.time()
         print("Ensemble Strategy took: ", (end - start) / 60, " minutes")
 
-        # Chỉ tạo cột cho các mô hình đã huấn luyện
+        # Tạo cột cho các mô hình đã huấn luyện
         columns = ["Iter", "Val Start", "Val End", "Model Used"]
         sharpe_columns = [f"{k.upper()} Sharpe" for k in trained_models.keys()]
         df_summary = pd.DataFrame(

@@ -18,6 +18,7 @@ from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
 
 from finrl import config
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
@@ -414,8 +415,9 @@ class DRLEnsembleAgent:
             return None, sharpe_list, -1
 
         print(f"======{model_name} Training========")
+        policy = "RecurrentActorCriticPolicy" if model_name == "re_ppo" else "MlpPolicy"
         model = self.get_model(
-            model_name, self.train_env, policy="MlpPolicy", model_kwargs=model_kwargs
+            model_name, self.train_env, policy=policy, model_kwargs=model_kwargs
         )
         model = self.train_model(
             model,
@@ -471,6 +473,7 @@ class DRLEnsembleAgent:
         DDPG_model_kwargs,
         SAC_model_kwargs,
         TD3_model_kwargs,
+        Recurrent_model_kwargs,
         timesteps_dict,
     ):
         # Model Parameters
@@ -480,6 +483,7 @@ class DRLEnsembleAgent:
             "ddpg": DDPG_model_kwargs,
             "sac": SAC_model_kwargs,
             "td3": TD3_model_kwargs,
+            "re_ppo": Recurrent_model_kwargs,  
         }
         # Model Sharpe Ratios
         model_dct = {k: {"sharpe_list": [], "sharpe": -1} for k in MODELS.keys()}
@@ -698,6 +702,7 @@ class DRLEnsembleAgent:
                 model_dct["ddpg"]["sharpe_list"],
                 model_dct["sac"]["sharpe_list"],
                 model_dct["td3"]["sharpe_list"],
+                model_dct["re_ppo"]["sharpe_list"],
             ]
         ).T
         df_summary.columns = [
@@ -710,6 +715,7 @@ class DRLEnsembleAgent:
             "DDPG Sharpe",
             "SAC Sharpe",
             "TD3 Sharpe",
+            "RecurrentPPO Sharpe",
         ]
 
         return df_summary

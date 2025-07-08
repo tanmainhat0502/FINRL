@@ -464,15 +464,14 @@ class DRLEnsembleAgent:
         sharpe_list.append(sharpe)
         return model, sharpe_list, sharpe
 
-    def run_ensemble_strategy(
-    self,
-    A2C_model_kwargs=None,
-    PPO_model_kwargs=None,
-    DDPG_model_kwargs=None,
-    SAC_model_kwargs=None,
-    TD3_model_kwargs=None,
-    Recurrent_model_kwargs=None,
-    timesteps_dict=None,
+    def run_ensemble_strategy(self,
+        A2C_model_kwargs=None,
+        PPO_model_kwargs=None,
+        DDPG_model_kwargs=None,
+        SAC_model_kwargs=None,
+        TD3_model_kwargs=None,
+        Recurrent_model_kwargs=None,
+        timesteps_dict=None,
     ):
         # Model Parameters
         kwargs = {
@@ -481,7 +480,7 @@ class DRLEnsembleAgent:
             "ddpg": DDPG_model_kwargs,
             "sac": SAC_model_kwargs,
             "td3": TD3_model_kwargs,
-            "re_ppo": Recurrent_model_kwargs,  
+            "re_ppo": Recurrent_model_kwargs,
         }
         # Model Sharpe Ratios
         model_dct = {k: {"sharpe_list": [], "sharpe": -1} for k in MODELS.keys()}
@@ -620,11 +619,11 @@ class DRLEnsembleAgent:
             # print("training: ",len(data_split(df, start=20090000, end=test.datadate.unique()[i-rebalance_window]) ))
             # print("==============Model Training===========")
             # Train Each Model
-            for model_name in MODELS.keys():
-                # Train The Model
+            trained_models = {k: v for k, v in kwargs.items() if v is not None}
+            for model_name in trained_models.keys():
                 model, sharpe_list, sharpe = self._train_window(
                     model_name,
-                    kwargs[model_name],
+                    trained_models[model_name],
                     model_dct[model_name]["sharpe_list"],
                     validation_start_date,
                     validation_end_date,
@@ -633,7 +632,6 @@ class DRLEnsembleAgent:
                     validation,
                     turbulence_threshold,
                 )
-                # Save the model's sharpe ratios, and the model itself
                 model_dct[model_name]["sharpe_list"] = sharpe_list
                 model_dct[model_name]["model"] = model
                 model_dct[model_name]["sharpe"] = sharpe

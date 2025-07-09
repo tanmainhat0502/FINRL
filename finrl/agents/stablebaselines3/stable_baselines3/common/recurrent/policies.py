@@ -476,7 +476,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         xlstm: xLSTMBlockStack,
     ) -> tuple[th.Tensor, tuple[th.Tensor, th.Tensor]]:
         """
-        Process sequence using xLSTM.
+        Process sequence using xLSTM with padding to match context_length.
 
         :param features: Input tensor (batch_size, seq_length, features_dim)
         :param lstm_states: Dummy states (not used by xLSTM)
@@ -484,12 +484,20 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :param xlstm: xLSTMBlockStack object
         :return: xLSTM output and dummy states
         """
-        # xLSTM xử lý toàn bộ chuỗi cùng lúc, không cần loop
-        n_seq = features.shape[0]  # batch_size
-        features_sequence = features  # Định dạng (batch_size, seq_length, features_dim)
+        batch_size, seq_length, features_dim = features.shape
+        context_length = xlstm.cfg.context_length  # Lấy context_length từ cấu hình
+
+        # Padding nếu seq_length < context_length
+        if seq_length < context_length:
+            print(f"Padding from {seq_length} to {context_length}")
+            pad_length = context_length - seq_length
+            padding = th.zeros((batch_size, pad_length, features_dim), device=features.device)
+            features_sequence = th.cat([features, padding], dim=1)
+        else:
+            features_sequence = features
+
         xlstm_output = xlstm(features_sequence.to("cuda"))
         xlstm_output = th.flatten(xlstm_output, start_dim=0, end_dim=1)  # (batch_size * seq_length, embedding_dim)
-        # Trả về dummy states để giữ tương thích
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
         return xlstm_output, dummy_states
 

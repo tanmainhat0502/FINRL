@@ -416,29 +416,28 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Khởi tạo xLSTM cho actor
         cfg = xLSTMBlockStackConfig(
-            mlstm_block=mLSTMBlockConfig(
-                mlstm=mLSTMLayerConfig(
-                    conv1d_kernel_size=4,
-                    qkv_proj_blocksize=4,
-                    num_heads=4,
-                )
+        mlstm_block=mLSTMBlockConfig(
+            mlstm=mLSTMLayerConfig(
+                conv1d_kernel_size=4,
+                qkv_proj_blocksize=4,
+                num_heads=4,
+            )
+        ),
+        slstm_block=sLSTMBlockConfig(
+            slstm=sLSTMLayerConfig(
+                backend="cuda",
+                num_heads=4,
+                conv1d_kernel_size=4,
+                bias_init="powerlaw_blockdependent",
             ),
-            slstm_block=sLSTMBlockConfig(
-                slstm=sLSTMLayerConfig(
-                    backend="cuda",
-                    num_heads=4,
-                    conv1d_kernel_size=4,
-                    bias_init="powerlaw_blockdependent",
-                ),
-                feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
-            ),
-            context_length=256,
-            num_blocks=n_lstm_layers,
-            embedding_dim=lstm_hidden_size,
-            slstm_at=[1],
-        )
+            feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
+        ),
+        context_length=31,  # Thay 256 bằng 31 hoặc độ dài tối đa của chuỗi
+        num_blocks=n_lstm_layers,
+        embedding_dim=lstm_hidden_size,
+        slstm_at=[1],
+    )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
-
         self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)  # Dummy shape, xLSTM không dùng hidden states
         self.critic = None
         self.xlstm_critic = None

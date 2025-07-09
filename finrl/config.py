@@ -80,7 +80,7 @@ RE_PPO_PARAMS = {
     "policy_kwargs": {
         "net_arch": {"pi": [64, 64], "vf": [64, 64]},
         "lstm_hidden_size": 256,
-        "n_lstm_layers": 1,
+        "n_lstm_layers": 8,
         "shared_lstm": False,
         "enable_critic_lstm": True,
         "lstm_kwargs": {"dropout": 0.1},

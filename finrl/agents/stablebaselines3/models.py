@@ -19,13 +19,11 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv
 from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
-
 from finrl import config
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
 from finrl.meta.preprocessor.preprocessors import data_split
 
 MODELS = {"a2c": A2C, "ddpg": DDPG, "td3": TD3, "sac": SAC, "ppo": PPO, "re_ppo": RecurrentPPO}
-
 MODEL_KWARGS = {x: config.__dict__[f"{x.upper()}_PARAMS"] for x in MODELS.keys()}
 
 NOISE = {
@@ -104,16 +102,16 @@ class DRLAgent:
     def get_model(
         self,
         model_name,
-        policy="MlpPolicy",
+        policy=None,
         policy_kwargs=None,
         model_kwargs=None,
         verbose=1,
-        seed=None
+        seed=None,
     ):
         if model_name not in MODELS:
             raise ValueError(
                 f"Model '{model_name}' not found in MODELS."
-            )  # this is more informative than NotImplementedError("NotImplementedError")
+            )
 
         if model_kwargs is None:
             model_kwargs = MODEL_KWARGS[model_name]
@@ -124,6 +122,13 @@ class DRLAgent:
                 mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions)
             )
         print(model_kwargs)
+
+        # Xác định policy dựa trên model_name
+        if model_name == "re_ppo":
+            policy = RecurrentActorCriticPolicy
+        else:
+            policy = 'MlpPolicy' 
+
         return MODELS[model_name](
             policy=policy,
             env=self.env,

@@ -12,10 +12,22 @@ from stable_baselines3.common.torch_layers import (
     MlpExtractor,
     NatureCNN,
 )
+from xlstm import (
+    xLSTMBlockStack,
+    xLSTMBlockStackConfig,
+    mLSTMBlockConfig,
+    mLSTMLayerConfig,
+    sLSTMBlockConfig,
+    sLSTMLayerConfig,
+    FeedForwardConfig,
+)
+
+
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
 from torch import nn
 from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import RNNStates
+
 
 
 class RecurrentActorCriticPolicy(ActorCriticPolicy):
@@ -109,6 +121,30 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
+        
+        # cfg = xLSTMBlockStackConfig(
+        #     mlstm_block=mLSTMBlockConfig(
+        #         mlstm=mLSTMLayerConfig(
+        #             conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4
+        #         )
+        #     ),
+        #     slstm_block=sLSTMBlockConfig(
+        #         slstm=sLSTMLayerConfig(
+        #             backend="cuda",
+        #             num_heads=4,
+        #             conv1d_kernel_size=4,
+        #             bias_init="powerlaw_blockdependent",
+        #         ),
+        #         feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
+        #     ),
+        #     context_length=256,
+        #     num_blocks=8,
+        #     embedding_dim=128,
+        #     slstm_at=[1],
+
+        # )
+        # self.lstm_actor= xLSTMBlockStack(cfg)
+        
         self.lstm_actor = nn.LSTM(
             self.features_dim,
             lstm_hidden_size,
@@ -117,6 +153,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         )
         # For the predict() method, to initialize hidden states
         # (n_lstm_layers, batch_size, lstm_hidden_size)
+
         self.lstm_hidden_state_shape = (n_lstm_layers, 1, lstm_hidden_size)
         self.critic = None
         self.lstm_critic = None

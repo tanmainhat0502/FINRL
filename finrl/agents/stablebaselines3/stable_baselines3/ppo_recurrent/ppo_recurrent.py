@@ -19,6 +19,7 @@ from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.buffers im
 from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.policies import RecurrentActorCriticPolicy
 from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import RNNStates
 from .policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
+from stable_baselines3.common.utils import FloatSchedule
 
 SelfRecurrentPPO = TypeVar("SelfRecurrentPPO", bound="RecurrentPPO")
 

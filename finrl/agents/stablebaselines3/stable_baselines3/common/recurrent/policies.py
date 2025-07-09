@@ -484,7 +484,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :param xlstm: xLSTMBlockStack object
         :return: xLSTM output and dummy states
         """
-        batch_size, seq_length, features_dim = features.shape
+        if len(features.shape) == 2:
+            batch_size, features_dim = features.shape
+            seq_length = 1
+            features = features.unsqueeze(1)  # (batch_size, 1, features_dim)
+        else:
+            batch_size, seq_length, features_dim = features.shape
+
         context_length = xlstm.cfg.context_length  # Lấy context_length từ cấu hình
 
         # Padding nếu seq_length < context_length
@@ -496,6 +502,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             features_sequence = features
 
+        print(f"Input shape to xlstm_actor: {features_sequence.shape}")  # Debug
         xlstm_output = xlstm(features_sequence.to("cuda"))
         xlstm_output = th.flatten(xlstm_output, start_dim=0, end_dim=1)  # (batch_size * seq_length, embedding_dim)
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))

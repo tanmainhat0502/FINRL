@@ -639,6 +639,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
             with th.no_grad():
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
+                print("self._last_obs SHape", self._last_obs.shape)
+                print("obs_tensor SHape", obs_tensor.shape)
+                if len(obs_tensor.shape) == 2:
+                    obs_tensor = obs_tensor.unsqueeze(1)  # T
                 episode_starts = th.tensor(self._last_episode_starts, dtype=th.float32, device=self.device)
                 actions, values, log_probs, lstm_states = self.policy.forward(obs_tensor, lstm_states, episode_starts)
 

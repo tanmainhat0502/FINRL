@@ -240,11 +240,7 @@ class DRLEnsembleAgent:
             temp_model_kwargs = model_kwargs.copy()
 
         # Xác định policy dựa trên model_name
-        if model_name == "re_ppo":
-            policy = "RecurrentActorCriticPolicy" if policy is None else policy
-        else:
-            policy = "MlpPolicy" if policy is None else policy
-
+        if model_name == "re_ppo": policy = RecurrentActorCriticPolicy 
         # Loại bỏ policy_kwargs nếu không phải re_ppo hoặc không hợp lệ
         if model_name != "re_ppo" and "policy_kwargs" in temp_model_kwargs:
             temp_model_kwargs.pop("policy_kwargs", None)
@@ -261,7 +257,7 @@ class DRLEnsembleAgent:
         if "verbose" in temp_model_kwargs:
             verbose = temp_model_kwargs.pop("verbose")
 
-        # Sử dụng policy_kwargs từ temp_model_kwargs cho re_ppo, bỏ giá trị trực tiếp
+        # Sử dụng policy_kwargs từ temp_model_kwargs cho re_ppo
         effective_policy_kwargs = temp_model_kwargs.pop("policy_kwargs", None) if model_name == "re_ppo" else None
 
         print(temp_model_kwargs)

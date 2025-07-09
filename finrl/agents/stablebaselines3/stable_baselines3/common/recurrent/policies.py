@@ -1,5 +1,314 @@
-from typing import Any, Optional, Union
+# from typing import Any, Optional, Union
 
+# import numpy as np
+# import torch as th
+# from gymnasium import spaces
+# from stable_baselines3.common.distributions import Distribution
+# from stable_baselines3.common.policies import ActorCriticPolicy
+# from stable_baselines3.common.torch_layers import (
+#     BaseFeaturesExtractor,
+#     CombinedExtractor,
+#     FlattenExtractor,
+#     MlpExtractor,
+#     NatureCNN,
+# )
+# from xlstm import (
+#     xLSTMBlockStack,
+#     xLSTMBlockStackConfig,
+#     mLSTMBlockConfig,
+#     mLSTMLayerConfig,
+#     sLSTMBlockConfig,
+#     sLSTMLayerConfig,
+#     FeedForwardConfig,
+# )
+
+
+# from stable_baselines3.common.type_aliases import Schedule
+# from stable_baselines3.common.utils import zip_strict
+# from torch import nn
+# from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import RNNStates
+
+
+
+# class RecurrentActorCriticPolicy(ActorCriticPolicy):
+#     """
+#     Recurrent policy class for actor-critic algorithms (has both policy and value prediction).
+#     To be used with A2C, PPO and the likes.
+#     It assumes that both the actor and the critic LSTM
+#     have the same architecture.
+
+#     :param observation_space: Observation space
+#     :param action_space: Action space
+#     :param lr_schedule: Learning rate schedule (could be constant)
+#     :param net_arch: The specification of the policy and value networks.
+#     :param activation_fn: Activation function
+#     :param ortho_init: Whether to use or not orthogonal initialization
+#     :param use_sde: Whether to use State Dependent Exploration or not
+#     :param log_std_init: Initial value for the log standard deviation
+#     :param full_std: Whether to use (n_features x n_actions) parameters
+#         for the std instead of only (n_features,) when using gSDE
+#     :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
+#         a positive standard deviation (cf paper). It allows to keep variance
+#         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
+#     :param squash_output: Whether to squash the output using a tanh function,
+#         this allows to ensure boundaries when using gSDE.
+#     :param features_extractor_class: Features extractor to use.
+#     :param features_extractor_kwargs: Keyword arguments
+#         to pass to the features extractor.
+#     :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
+#     :param normalize_images: Whether to normalize images or not,
+#          dividing by 255.0 (True by default)
+#     :param optimizer_class: The optimizer to use,
+#         ``th.optim.Adam`` by default
+#     :param optimizer_kwargs: Additional keyword arguments,
+#         excluding the learning rate, to pass to the optimizer
+#     :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+#     :param n_lstm_layers: Number of LSTM layers.
+#     :param shared_lstm: Whether the LSTM is shared between the actor and the critic
+#         (in that case, only the actor gradient is used)
+#         By default, the actor and the critic have two separate LSTM.
+#     :param enable_critic_lstm: Use a seperate LSTM for the critic.
+#     :param lstm_kwargs: Additional keyword arguments to pass the the LSTM
+#         constructor.
+#     """
+
+#     def __init__(
+#         self,
+#         observation_space: spaces.Space,
+#         action_space: spaces.Space,
+#         lr_schedule: Schedule,
+#         net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+#         activation_fn: type[nn.Module] = nn.Tanh,
+#         ortho_init: bool = True,
+#         use_sde: bool = False,
+#         log_std_init: float = 0.0,
+#         full_std: bool = True,
+#         use_expln: bool = False,
+#         squash_output: bool = False,
+#         features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+#         features_extractor_kwargs: Optional[dict[str, Any]] = None,
+#         share_features_extractor: bool = True,
+#         normalize_images: bool = True,
+#         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+#         optimizer_kwargs: Optional[dict[str, Any]] = None,
+#         lstm_hidden_size: int = 256,
+#         n_lstm_layers: int = 1,
+#         shared_lstm: bool = False,
+#         enable_critic_lstm: bool = True,
+#         lstm_kwargs: Optional[dict[str, Any]] = None,
+#     ):
+#         self.lstm_output_dim = lstm_hidden_size
+#         super().__init__(
+#             observation_space,
+#             action_space,
+#             lr_schedule,
+#             net_arch,
+#             activation_fn,
+#             ortho_init,
+#             use_sde,
+#             log_std_init,
+#             full_std,
+#             use_expln,
+#             squash_output,
+#             features_extractor_class,
+#             features_extractor_kwargs,
+#             share_features_extractor,
+#             normalize_images,
+#             optimizer_class,
+#             optimizer_kwargs,
+#         )
+
+#         self.lstm_kwargs = lstm_kwargs or {}
+#         self.shared_lstm = shared_lstm
+#         self.enable_critic_lstm = enable_critic_lstm
+        
+#         cfg = xLSTMBlockStackConfig(
+#             mlstm_block=mLSTMBlockConfig(
+#                 mlstm=mLSTMLayerConfig(
+#                     conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4
+#                 )
+#             ),
+#             slstm_block=sLSTMBlockConfig(
+#                 slstm=sLSTMLayerConfig(
+#                     backend="cuda",
+#                     num_heads=4,
+#                     conv1d_kernel_size=4,
+#                     bias_init="powerlaw_blockdependent",
+#                 ),
+#                 feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
+#             ),
+#             context_length=256,
+#             num_blocks=8,
+#             embedding_dim=128,
+#             slstm_at=[1],
+
+#         )
+#         self.xlstm_actor= xLSTMBlockStack(cfg)
+        
+#         # self.lstm_actor = nn.LSTM(
+#         #     self.features_dim,
+#         #     lstm_hidden_size,
+#         #     num_layers=n_lstm_layers,
+#         #     **self.lstm_kwargs,
+#         # )
+#         # For the predict() method, to initialize hidden states
+#         # (n_lstm_layers, batch_size, lstm_hidden_size)
+
+#         self.lstm_hidden_state_shape = (n_lstm_layers, 1, lstm_hidden_size)
+#         self.critic = None
+#         self.lstm_critic = None
+#         assert not (
+#             self.shared_lstm and self.enable_critic_lstm
+#         ), "You must choose between shared LSTM, seperate or no LSTM for the critic."
+
+#         assert not (
+#             self.shared_lstm and not self.share_features_extractor
+#         ), "If the features extractor is not shared, the LSTM cannot be shared."
+
+#         # No LSTM for the critic, we still need to convert
+#         # output of features extractor to the correct size
+#         # (size of the output of the actor lstm)
+#         if not (self.shared_lstm or self.enable_critic_lstm):
+#             self.critic = nn.Linear(self.features_dim, lstm_hidden_size)
+
+#         # Use a separate LSTM for the critic
+#         if self.enable_critic_lstm:
+#             self.lstm_critic = nn.LSTM(
+#                 self.features_dim,
+#                 lstm_hidden_size,
+#                 num_layers=n_lstm_layers,
+#                 **self.lstm_kwargs,
+#             )
+
+#         # Setup optimizer with initial learning rate
+#         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+
+#     def _build_mlp_extractor(self) -> None:
+#         """
+#         Create the policy and value networks.
+#         Part of the layers can be shared.
+#         """
+#         self.mlp_extractor = MlpExtractor(
+#             self.lstm_output_dim,
+#             net_arch=self.net_arch,
+#             activation_fn=self.activation_fn,
+#             device=self.device,
+#         )
+
+#     @staticmethod
+#     def _process_sequence(
+#         features: th.Tensor,
+#         lstm_states: tuple[th.Tensor, th.Tensor],
+#         episode_starts: th.Tensor,
+#         lstm: nn.LSTM,
+#     ) -> tuple[th.Tensor, th.Tensor]:
+#         """
+#         Do a forward pass in the LSTM network.
+
+#         :param features: Input tensor
+#         :param lstm_states: previous hidden and cell states of the LSTM, respectively
+#         :param episode_starts: Indicates when a new episode starts,
+#             in that case, we need to reset LSTM states.
+#         :param lstm: LSTM object.
+#         :return: LSTM output and updated LSTM states.
+#         """
+#         # LSTM logic
+#         # (sequence length, batch size, features dim)
+#         # (batch size = n_envs for data collection or n_seq when doing gradient update)
+#         n_seq = lstm_states[0].shape[1]
+#         # Batch to sequence
+#         # (padded batch size, features_dim) -> (n_seq, max length, features_dim) -> (max length, n_seq, features_dim)
+#         # note: max length (max sequence length) is always 1 during data collection
+#         features_sequence = features.reshape((n_seq, -1, lstm.input_size)).swapaxes(0, 1)
+#         episode_starts = episode_starts.reshape((n_seq, -1)).swapaxes(0, 1)
+
+#         # If we don't have to reset the state in the middle of a sequence
+#         # we can avoid the for loop, which speeds up things
+#         if th.all(episode_starts == 0.0):
+#             lstm_output, lstm_states = lstm(features_sequence, lstm_states)
+#             lstm_output = th.flatten(lstm_output.transpose(0, 1), start_dim=0, end_dim=1)
+#             return lstm_output, lstm_states
+
+#         lstm_output = []
+#         # Iterate over the sequence
+#         for features, episode_start in zip_strict(features_sequence, episode_starts):
+#             hidden, lstm_states = lstm(
+#                 features.unsqueeze(dim=0),
+#                 (
+#                     # Reset the states at the beginning of a new episode
+#                     (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[0],
+#                     (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[1],
+#                 ),
+#             )
+#             lstm_output += [hidden]
+#         # Sequence to batch
+#         # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
+#         lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)
+#         return lstm_output, lstm_states
+
+#     def forward(
+#         self,
+#         obs: th.Tensor,
+#         lstm_states: RNNStates,
+#         episode_starts: th.Tensor,
+#         deterministic: bool = False,
+#     ) -> tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
+#         """
+#         Forward pass in all the networks (actor and critic)
+
+#         :param obs: Observation. Observation
+#         :param lstm_states: The last hidden and memory states for the LSTM.
+#         :param episode_starts: Whether the observations correspond to new episodes
+#             or not (we reset the lstm states in that case).
+#         :param deterministic: Whether to sample or use deterministic actions
+#         :return: action, value and log probability of the action
+#         """
+#         # Preprocess the observation if needed
+#         features = self.extract_features(obs)
+#         if self.share_features_extractor:
+#             pi_features = vf_features = features  # alis
+#         else:
+#             pi_features, vf_features = features
+#         # latent_pi, latent_vf = self.mlp_extractor(features)
+#         latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+#         if self.lstm_critic is not None:
+#             latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+#         elif self.shared_lstm:
+#             # Re-use LSTM features but do not backpropagate
+#             latent_vf = latent_pi.detach()
+#             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
+#         else:
+#             # Critic only has a feedforward network
+#             latent_vf = self.critic(vf_features)
+#             lstm_states_vf = lstm_states_pi
+
+#         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+#         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+
+#         # Evaluate the values for the given observations
+#         values = self.value_net(latent_vf)
+#         distribution = self._get_action_dist_from_latent(latent_pi)
+#         actions = distribution.get_actions(deterministic=deterministic)
+#         log_prob = distribution.log_prob(actions)
+#         return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from typing import Any, Optional, Union
 import numpy as np
 import torch as th
 from gymnasium import spaces
@@ -21,55 +330,38 @@ from xlstm import (
     sLSTMLayerConfig,
     FeedForwardConfig,
 )
-
-
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
 from torch import nn
 from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_aliases import RNNStates
 
-
-
 class RecurrentActorCriticPolicy(ActorCriticPolicy):
     """
-    Recurrent policy class for actor-critic algorithms (has both policy and value prediction).
+    Recurrent policy class for actor-critic algorithms using xLSTM.
     To be used with A2C, PPO and the likes.
-    It assumes that both the actor and the critic LSTM
-    have the same architecture.
 
     :param observation_space: Observation space
     :param action_space: Action space
-    :param lr_schedule: Learning rate schedule (could be constant)
+    :param lr_schedule: Learning rate schedule
     :param net_arch: The specification of the policy and value networks.
     :param activation_fn: Activation function
-    :param ortho_init: Whether to use or not orthogonal initialization
-    :param use_sde: Whether to use State Dependent Exploration or not
+    :param ortho_init: Whether to use orthogonal initialization
+    :param use_sde: Whether to use State Dependent Exploration
     :param log_std_init: Initial value for the log standard deviation
-    :param full_std: Whether to use (n_features x n_actions) parameters
-        for the std instead of only (n_features,) when using gSDE
-    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
-        a positive standard deviation (cf paper). It allows to keep variance
-        above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
-    :param squash_output: Whether to squash the output using a tanh function,
-        this allows to ensure boundaries when using gSDE.
-    :param features_extractor_class: Features extractor to use.
-    :param features_extractor_kwargs: Keyword arguments
-        to pass to the features extractor.
-    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
-    :param normalize_images: Whether to normalize images or not,
-         dividing by 255.0 (True by default)
-    :param optimizer_class: The optimizer to use,
-        ``th.optim.Adam`` by default
-    :param optimizer_kwargs: Additional keyword arguments,
-        excluding the learning rate, to pass to the optimizer
-    :param lstm_hidden_size: Number of hidden units for each LSTM layer.
-    :param n_lstm_layers: Number of LSTM layers.
-    :param shared_lstm: Whether the LSTM is shared between the actor and the critic
-        (in that case, only the actor gradient is used)
-        By default, the actor and the critic have two separate LSTM.
-    :param enable_critic_lstm: Use a seperate LSTM for the critic.
-    :param lstm_kwargs: Additional keyword arguments to pass the the LSTM
-        constructor.
+    :param full_std: Whether to use (n_features x n_actions) parameters for std
+    :param use_expln: Use expln() instead of exp() for std
+    :param squash_output: Whether to squash output using tanh
+    :param features_extractor_class: Features extractor to use
+    :param features_extractor_kwargs: Keyword arguments for features extractor
+    :param share_features_extractor: Share features extractor between policy and value
+    :param normalize_images: Normalize images by dividing by 255.0
+    :param optimizer_class: Optimizer to use
+    :param optimizer_kwargs: Additional optimizer arguments
+    :param lstm_hidden_size: Embedding dimension for xLSTM (replaces hidden_size)
+    :param n_lstm_layers: Number of xLSTM blocks (not used for state)
+    :param shared_lstm: Whether xLSTM is shared between actor and critic
+    :param enable_critic_lstm: Use a separate xLSTM for the critic
+    :param lstm_kwargs: Additional keyword arguments (ignored for xLSTM)
     """
 
     def __init__(
@@ -91,13 +383,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[dict[str, Any]] = None,
-        lstm_hidden_size: int = 256,
-        n_lstm_layers: int = 1,
+        lstm_hidden_size: int = 128,  # Sử dụng embedding_dim của xLSTM
+        n_lstm_layers: int = 8,  # Số blocks trong xLSTM
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[dict[str, Any]] = None,
     ):
-        self.lstm_output_dim = lstm_hidden_size
+        self.lstm_output_dim = lstm_hidden_size  # Giữ nguyên embedding_dim
         super().__init__(
             observation_space,
             action_space,
@@ -121,72 +413,54 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
-        
-        # cfg = xLSTMBlockStackConfig(
-        #     mlstm_block=mLSTMBlockConfig(
-        #         mlstm=mLSTMLayerConfig(
-        #             conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4
-        #         )
-        #     ),
-        #     slstm_block=sLSTMBlockConfig(
-        #         slstm=sLSTMLayerConfig(
-        #             backend="cuda",
-        #             num_heads=4,
-        #             conv1d_kernel_size=4,
-        #             bias_init="powerlaw_blockdependent",
-        #         ),
-        #         feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
-        #     ),
-        #     context_length=256,
-        #     num_blocks=8,
-        #     embedding_dim=128,
-        #     slstm_at=[1],
 
-        # )
-        # self.lstm_actor= xLSTMBlockStack(cfg)
-        
-        self.lstm_actor = nn.LSTM(
-            self.features_dim,
-            lstm_hidden_size,
-            num_layers=n_lstm_layers,
-            **self.lstm_kwargs,
+        # Khởi tạo xLSTM cho actor
+        cfg = xLSTMBlockStackConfig(
+            mlstm_block=mLSTMBlockConfig(
+                mlstm=mLSTMLayerConfig(
+                    conv1d_kernel_size=4,
+                    qkv_proj_blocksize=4,
+                    num_heads=4,
+                )
+            ),
+            slstm_block=sLSTMBlockConfig(
+                slstm=sLSTMLayerConfig(
+                    backend="cuda",
+                    num_heads=4,
+                    conv1d_kernel_size=4,
+                    bias_init="powerlaw_blockdependent",
+                ),
+                feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
+            ),
+            context_length=256,
+            num_blocks=n_lstm_layers,
+            embedding_dim=lstm_hidden_size,
+            slstm_at=[1],
         )
-        # For the predict() method, to initialize hidden states
-        # (n_lstm_layers, batch_size, lstm_hidden_size)
+        self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 
-        self.lstm_hidden_state_shape = (n_lstm_layers, 1, lstm_hidden_size)
+        self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)  # Dummy shape, xLSTM không dùng hidden states
         self.critic = None
-        self.lstm_critic = None
+        self.xlstm_critic = None
         assert not (
             self.shared_lstm and self.enable_critic_lstm
-        ), "You must choose between shared LSTM, seperate or no LSTM for the critic."
+        ), "You must choose between shared xLSTM, separate or no xLSTM for the critic."
 
         assert not (
             self.shared_lstm and not self.share_features_extractor
-        ), "If the features extractor is not shared, the LSTM cannot be shared."
+        ), "If the features extractor is not shared, the xLSTM cannot be shared."
 
-        # No LSTM for the critic, we still need to convert
-        # output of features extractor to the correct size
-        # (size of the output of the actor lstm)
         if not (self.shared_lstm or self.enable_critic_lstm):
             self.critic = nn.Linear(self.features_dim, lstm_hidden_size)
 
-        # Use a separate LSTM for the critic
         if self.enable_critic_lstm:
-            self.lstm_critic = nn.LSTM(
-                self.features_dim,
-                lstm_hidden_size,
-                num_layers=n_lstm_layers,
-                **self.lstm_kwargs,
-            )
+            self.xlstm_critic = xLSTMBlockStack(cfg).to("cuda")
 
-        # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
     def _build_mlp_extractor(self) -> None:
         """
         Create the policy and value networks.
-        Part of the layers can be shared.
         """
         self.mlp_extractor = MlpExtractor(
             self.lstm_output_dim,
@@ -198,53 +472,27 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     @staticmethod
     def _process_sequence(
         features: th.Tensor,
-        lstm_states: tuple[th.Tensor, th.Tensor],
+        lstm_states: tuple[th.Tensor, th.Tensor],  # Dummy states for compatibility
         episode_starts: th.Tensor,
-        lstm: nn.LSTM,
-    ) -> tuple[th.Tensor, th.Tensor]:
+        xlstm: xLSTMBlockStack,
+    ) -> tuple[th.Tensor, tuple[th.Tensor, th.Tensor]]:
         """
-        Do a forward pass in the LSTM network.
+        Process sequence using xLSTM.
 
-        :param features: Input tensor
-        :param lstm_states: previous hidden and cell states of the LSTM, respectively
-        :param episode_starts: Indicates when a new episode starts,
-            in that case, we need to reset LSTM states.
-        :param lstm: LSTM object.
-        :return: LSTM output and updated LSTM states.
+        :param features: Input tensor (batch_size, seq_length, features_dim)
+        :param lstm_states: Dummy states (not used by xLSTM)
+        :param episode_starts: Indicates new episodes (ignored for xLSTM)
+        :param xlstm: xLSTMBlockStack object
+        :return: xLSTM output and dummy states
         """
-        # LSTM logic
-        # (sequence length, batch size, features dim)
-        # (batch size = n_envs for data collection or n_seq when doing gradient update)
-        n_seq = lstm_states[0].shape[1]
-        # Batch to sequence
-        # (padded batch size, features_dim) -> (n_seq, max length, features_dim) -> (max length, n_seq, features_dim)
-        # note: max length (max sequence length) is always 1 during data collection
-        features_sequence = features.reshape((n_seq, -1, lstm.input_size)).swapaxes(0, 1)
-        episode_starts = episode_starts.reshape((n_seq, -1)).swapaxes(0, 1)
-
-        # If we don't have to reset the state in the middle of a sequence
-        # we can avoid the for loop, which speeds up things
-        if th.all(episode_starts == 0.0):
-            lstm_output, lstm_states = lstm(features_sequence, lstm_states)
-            lstm_output = th.flatten(lstm_output.transpose(0, 1), start_dim=0, end_dim=1)
-            return lstm_output, lstm_states
-
-        lstm_output = []
-        # Iterate over the sequence
-        for features, episode_start in zip_strict(features_sequence, episode_starts):
-            hidden, lstm_states = lstm(
-                features.unsqueeze(dim=0),
-                (
-                    # Reset the states at the beginning of a new episode
-                    (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[0],
-                    (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[1],
-                ),
-            )
-            lstm_output += [hidden]
-        # Sequence to batch
-        # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
-        lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)
-        return lstm_output, lstm_states
+        # xLSTM xử lý toàn bộ chuỗi cùng lúc, không cần loop
+        n_seq = features.shape[0]  # batch_size
+        features_sequence = features  # Định dạng (batch_size, seq_length, features_dim)
+        xlstm_output = xlstm(features_sequence.to("cuda"))
+        xlstm_output = th.flatten(xlstm_output, start_dim=0, end_dim=1)  # (batch_size * seq_length, embedding_dim)
+        # Trả về dummy states để giữ tương thích
+        dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
+        return xlstm_output, dummy_states
 
     def forward(
         self,
@@ -254,43 +502,39 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         deterministic: bool = False,
     ) -> tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
         """
-        Forward pass in all the networks (actor and critic)
+        Forward pass using xLSTM.
 
-        :param obs: Observation. Observation
-        :param lstm_states: The last hidden and memory states for the LSTM.
-        :param episode_starts: Whether the observations correspond to new episodes
-            or not (we reset the lstm states in that case).
-        :param deterministic: Whether to sample or use deterministic actions
-        :return: action, value and log probability of the action
+        :param obs: Observation
+        :param lstm_states: Dummy states
+        :param episode_starts: New episode indicators
+        :param deterministic: Whether to use deterministic actions
+        :return: action, value, log_prob, updated states
         """
-        # Preprocess the observation if needed
         features = self.extract_features(obs)
         if self.share_features_extractor:
-            pi_features = vf_features = features  # alis
+            pi_features = vf_features = features
         else:
             pi_features, vf_features = features
-        # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
-        if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+
+        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.xlstm_actor)
+        if self.xlstm_critic is not None:
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic)
         elif self.shared_lstm:
-            # Re-use LSTM features but do not backpropagate
             latent_vf = latent_pi.detach()
             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
         else:
-            # Critic only has a feedforward network
             latent_vf = self.critic(vf_features)
             lstm_states_vf = lstm_states_pi
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
-        # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
+
 
     def get_distribution(
         self,

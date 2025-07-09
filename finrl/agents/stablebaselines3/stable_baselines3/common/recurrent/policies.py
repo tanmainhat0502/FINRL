@@ -438,6 +438,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         slstm_at=[1],
     )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
+        self.context_length = cfg.context_length  # Lưu context_length để sử dụng sau
         self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)  # Dummy shape, xLSTM không dùng hidden states
         self.critic = None
         self.xlstm_critic = None
@@ -471,19 +472,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     @staticmethod
     def _process_sequence(
         features: th.Tensor,
-        lstm_states: tuple[th.Tensor, th.Tensor],  # Dummy states for compatibility
+        lstm_states: tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
         xlstm: xLSTMBlockStack,
+        context_length: int,  # Thêm tham số context_length
     ) -> tuple[th.Tensor, tuple[th.Tensor, th.Tensor]]:
-        """
-        Process sequence using xLSTM with padding to match context_length.
-
-        :param features: Input tensor (batch_size, seq_length, features_dim)
-        :param lstm_states: Dummy states (not used by xLSTM)
-        :param episode_starts: Indicates new episodes (ignored for xLSTM)
-        :param xlstm: xLSTMBlockStack object
-        :return: xLSTM output and dummy states
-        """
         if len(features.shape) == 2:
             batch_size, features_dim = features.shape
             seq_length = 1
@@ -491,7 +484,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             batch_size, seq_length, features_dim = features.shape
 
-        context_length = xlstm.cfg.context_length  # Lấy context_length từ cấu hình
+        print(f"Context length: {context_length}, Input seq_length: {seq_length}")
 
         # Padding nếu seq_length < context_length
         if seq_length < context_length:
@@ -502,9 +495,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             features_sequence = features
 
-        print(f"Input shape to xlstm_actor: {features_sequence.shape}")  # Debug
+        print(f"Input shape to xlstm_actor: {features_sequence.shape}")
         xlstm_output = xlstm(features_sequence.to("cuda"))
-        xlstm_output = th.flatten(xlstm_output, start_dim=0, end_dim=1)  # (batch_size * seq_length, embedding_dim)
+        xlstm_output = th.flatten(xlstm_output, start_dim=0, end_dim=1)
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
         return xlstm_output, dummy_states
 
@@ -530,9 +523,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             pi_features, vf_features = features
 
-        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.xlstm_actor)
+        # Truyền context_length vào _process_sequence
+        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.xlstm_actor, self.context_length)
         if self.xlstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic, self.context_length)
         elif self.shared_lstm:
             latent_vf = latent_pi.detach()
             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
@@ -548,7 +542,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
-
 
     def get_distribution(
         self,

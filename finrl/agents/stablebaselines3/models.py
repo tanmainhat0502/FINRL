@@ -226,7 +226,7 @@ class DRLEnsembleAgent:
         policy=None,
         policy_kwargs=None,
         model_kwargs=None,
-        seed=None,  # Giữ làm mặc định, nhưng sẽ bị ghi đè bởi model_kwargs
+        seed=None,
         verbose=1,
     ):
         if model_name not in MODELS:
@@ -255,20 +255,21 @@ class DRLEnsembleAgent:
                 temp_model_kwargs["action_noise"]
             ](mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
 
-        # Loại bỏ seed trực tiếp nếu đã có trong temp_model_kwargs
+        # Loại bỏ seed và verbose trực tiếp nếu đã có trong temp_model_kwargs
         if "seed" in temp_model_kwargs:
             seed = temp_model_kwargs.pop("seed")
-
-        # Loại bỏ verbose trực tiếp nếu đã có trong temp_model_kwargs
         if "verbose" in temp_model_kwargs:
             verbose = temp_model_kwargs.pop("verbose")
+
+        # Sử dụng policy_kwargs từ temp_model_kwargs cho re_ppo, bỏ giá trị trực tiếp
+        effective_policy_kwargs = temp_model_kwargs.pop("policy_kwargs", None) if model_name == "re_ppo" else None
 
         print(temp_model_kwargs)
         return MODELS[model_name](
             policy=policy,
             env=env,
             verbose=verbose,
-            policy_kwargs=policy_kwargs if model_name == "re_ppo" else None,
+            policy_kwargs=effective_policy_kwargs,
             seed=seed,
             **temp_model_kwargs,
         )

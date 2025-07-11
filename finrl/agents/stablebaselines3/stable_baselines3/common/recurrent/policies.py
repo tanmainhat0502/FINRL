@@ -759,9 +759,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         if self.enable_critic_lstm:
             self.xlstm_critic = xLSTMBlockStack(cfg).to("cuda")
 
-        # Sử dụng 2 * action_space.shape[0] cho DiagGaussianDistribution
+        # Tính action_dim từ action_space
         action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
-        self.action_net = nn.Linear(lstm_hidden_size, 2 * action_dim)
+        self.action_net = nn.Linear(lstm_hidden_size, 2 * action_dim)  # Đầu ra là 2 * action_dim cho mean và log_std
+
+        # Khởi tạo log_std như một tham số học được với kích thước khớp
+        self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm

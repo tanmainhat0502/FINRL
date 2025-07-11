@@ -643,16 +643,6 @@ from stable_baselines3.common.torch_layers import (
     MlpExtractor,
     NatureCNN,
 )
-from xlstm import (
-    xLSTMBlockStack,
-    xLSTMBlockStackConfig,
-    mLSTMBlockConfig,
-    mLSTMLayerConfig,
-    sLSTMBlockConfig,
-    sLSTMLayerConfig,
-    FeedForwardConfig,
-)
-
 
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
@@ -749,95 +739,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             slstm_at=[1],
 
         )
-        python
 
-Collapse
-
-Wrap
-
-Run
-
-Copy
-from finrl.agents.stablebaselines3.stable_baselines3.common.policies import ActorCriticPolicy
-from torch import nn
-import torch as th
-from xlstm.xlstm_block_stack import xLSTMBlockStack, xLSTMBlockStackConfig
-from xlstm.blocks.mlstm.layer import mLSTMLayerConfig
-from xlstm.blocks.slstm.layer import sLSTMLayerConfig
-from xlstm.blocks.feedforward import FeedForwardConfig
-from typing import Optional, Tuple, Union
-from stable_baselines3.common.distributions import DiagGaussianDistribution
-
-class RecurrentActorCriticPolicy(ActorCriticPolicy):
-    def __init__(
-        self,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
-        activation_fn: type[nn.Module] = nn.Tanh,
-        ortho_init: bool = True,
-        use_sde: bool = False,
-        log_std_init: float = 0.0,
-        full_std: bool = True,
-        use_expln: bool = False,
-        squash_output: bool = False,
-        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
-        share_features_extractor: bool = True,
-        normalize_images: bool = True,
-        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
-        lstm_hidden_size: int = 256,
-        n_lstm_layers: int = 1,
-        shared_lstm: bool = False,
-        enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[dict[str, Any]] = None,
-        context_length: int = 61,  # Dựa trên log
-    ):
-        self.lstm_output_dim = lstm_hidden_size
-        super().__init__(
-            observation_space,
-            action_space,
-            lr_schedule,
-            net_arch,
-            activation_fn,
-            ortho_init,
-            use_sde,
-            log_std_init,
-            full_std,
-            use_expln,
-            squash_output,
-            features_extractor_class,
-            features_extractor_kwargs,
-            share_features_extractor,
-            normalize_images,
-            optimizer_class,
-            optimizer_kwargs,
-        )
-
-        self.lstm_kwargs = lstm_kwargs or {}
-        self.shared_lstm = shared_lstm
-        self.enable_critic_lstm = enable_critic_lstm
-        self.context_length = context_length
-
-        cfg = xLSTMBlockStackConfig(
-            mlstm_block=mLSTMLayerConfig(
-                conv1d_kernel_size=4,
-                qkv_proj_blocksize=4,
-                num_heads=4,
-            ),
-            slstm_block=sLSTMLayerConfig(
-                backend="cuda",
-                num_heads=4,
-                conv1d_kernel_size=4,
-                bias_init="powerlaw_blockdependent",
-            ),
-            context_length=context_length,
-            num_blocks=n_lstm_layers,
-            embedding_dim=lstm_hidden_size,
-            slstm_at=[1],
-        )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 
         self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)

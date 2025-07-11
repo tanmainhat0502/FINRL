@@ -677,48 +677,6 @@ from xlstm import (
 from typing import Optional, Tuple, Union
 
 class RecurrentActorCriticPolicy(ActorCriticPolicy):
-    """
-    Recurrent policy class for actor-critic algorithms (has both policy and value prediction).
-    To be used with A2C, PPO and the likes.
-    It assumes that both the actor and the critic xLSTM
-    have the same architecture.
-
-    :param observation_space: Observation space
-    :param action_space: Action space
-    :param lr_schedule: Learning rate schedule (could be constant)
-    :param net_arch: The specification of the policy and value networks.
-    :param activation_fn: Activation function
-    :param ortho_init: Whether to use or not orthogonal initialization
-    :param use_sde: Whether to use State Dependent Exploration or not
-    :param log_std_init: Initial value for the log standard deviation
-    :param full_std: Whether to use (n_features x n_actions) parameters
-        for the std instead of only (n_features,) when using gSDE
-    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
-        a positive standard deviation (cf paper). It allows to keep variance
-        above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
-    :param squash_output: Whether to squash the output using a tanh function,
-        this allows to ensure boundaries when using gSDE.
-    :param features_extractor_class: Features extractor to use.
-    :param features_extractor_kwargs: Keyword arguments
-        to pass to the features extractor.
-    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
-    :param normalize_images: Whether to normalize images or not,
-         dividing by 255.0 (True by default)
-    :param optimizer_class: The optimizer to use,
-        ``th.optim.Adam`` by default
-    :param optimizer_kwargs: Additional keyword arguments,
-        excluding the learning rate, to pass to the optimizer
-    :param lstm_hidden_size: Number of hidden units for each xLSTM layer (embedding_dim).
-    :param n_lstm_layers: Number of xLSTM layers.
-    :param shared_lstm: Whether the xLSTM is shared between the actor and the critic
-        (in that case, only the actor gradient is used)
-        By default, the actor and the critic have two separate xLSTM.
-    :param enable_critic_lstm: Use a separate xLSTM for the critic.
-    :param lstm_kwargs: Additional keyword arguments to pass to the xLSTM
-        constructor.
-    :param context_length: Fixed sequence length for xLSTM processing.
-    """
-
     def __init__(
         self,
         observation_space: spaces.Space,
@@ -743,7 +701,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[dict[str, Any]] = None,
-        context_length: int = 31,  # Thêm tham số context_length, mặc định 31
+        context_length: int = 61,  # Đặt lại context_length dựa trên log
     ):
         self.lstm_output_dim = lstm_hidden_size
         super().__init__(
@@ -769,39 +727,37 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
-        self.context_length = context_length  # Lưu context_length
+        self.context_length = context_length
 
-        # Khởi tạo xLSTM cho actor
         cfg = xLSTMBlockStackConfig(
-            mlstm_block=mLSTMBlockConfig(
-                mlstm=mLSTMLayerConfig(
-                    conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4
-                )
+            mlstm_block=mLSTMLayerConfig(
+                conv1d_kernel_size=4,
+                qkv_proj_blocksize=4,
+                num_heads=4,
             ),
-            slstm_block=sLSTMBlockConfig(
-                slstm=sLSTMLayerConfig(
-                    backend="cuda",
-                    num_heads=4,
-                    conv1d_kernel_size=4,
-                    bias_init="powerlaw_blockdependent",
-                ),
+            slstm_block=sLSTMLayerConfig(
+                backend="cuda",
+                num_heads=4,
+                conv1d_kernel_size=4,
+                bias_init="powerlaw_blockdependent",
                 feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
             ),
             context_length=context_length,
             num_blocks=n_lstm_layers,
-            embedding_dim=lstm_hidden_size,  # Đảm bảo khớp với lstm_hidden_size
+            embedding_dim=lstm_hidden_size,
             slstm_at=[1],
-
         )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 
-        # Dummy shape, xLSTM không dùng hidden states
         self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)
         self.critic = None
         self.xlstm_critic = None
 
         if self.enable_critic_lstm:
-            self.xlstm_critic = xLSTMBlockStack(cfg).to("cuda")  # Sử dụng cùng cấu hình cho critic
+            self.xlstm_critic = xLSTMBlockStack(cfg).to("cuda")
+
+        # Khởi tạo action_net với kích thước đầu vào 256 (khớp với embedding_dim)
+        self.action_net = nn.Linear(lstm_hidden_size, self.action_dist.projection_size)  # Sử dụng projection_size từ action_dist
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm
@@ -817,10 +773,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
     def _build_mlp_extractor(self) -> None:
-        """
-        Create the policy and value networks.
-        Part of the layers can be shared.
-        """
         self.mlp_extractor = MlpExtractor(
             self.lstm_output_dim,
             net_arch=self.net_arch,
@@ -830,15 +782,14 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     def extract_features(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor] = None, episode_starts: th.Tensor = None) -> th.Tensor:
         if obs.dim() == 1:
-            obs = obs.unsqueeze(0).unsqueeze(-1)  # [1] -> [1, 1, 1]
+            obs = obs.unsqueeze(0).unsqueeze(-1)
         elif obs.dim() == 2:
-            obs = obs.unsqueeze(-1)  # [1, 31] -> [1, 31, 1]
+            obs = obs.unsqueeze(-1)
         elif obs.dim() == 3 and obs.shape[2] == 1:
-            pass  # Đã đúng định dạng
+            pass
         else:
             raise ValueError(f"Unexpected obs shape: {obs.shape}")
 
-        # Mở rộng feature dimension lên lstm_hidden_size nếu cần
         if obs.shape[2] != self.lstm_output_dim:
             obs = obs.expand(-1, -1, self.lstm_output_dim)
 
@@ -856,43 +807,30 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     @staticmethod
     def _process_sequence(
         features: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],  # Dummy states
+        lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
         xlstm: xLSTMBlockStack,
-        context_length: int,  # Thêm tham số context_length
+        context_length: int,
     ) -> Tuple[th.Tensor, Tuple[th.Tensor, th.Tensor]]:
-        """
-        Process sequence using xLSTM with padding to match context_length.
-
-        :param features: Input tensor (batch_size, seq_length, features_dim)
-        :param lstm_states: Dummy states (not used by xLSTM)
-        :param episode_starts: Indicates new episodes (ignored for xLSTM)
-        :param xlstm: xLSTMBlockStack object
-        :param context_length: Fixed context length from config
-        :return: xLSTM output and dummy states
-        """
         if len(features.shape) == 2:
             batch_size, features_dim = features.shape
-            seq_length = 1
-            features = features.unsqueeze(1)  # (batch_size, 1, features_dim)
+            features = features.unsqueeze(1)
         else:
             batch_size, seq_length, features_dim = features.shape
 
-        # Padding nếu seq_length < context_length
         if seq_length < context_length:
             pad_length = context_length - seq_length
             padding = th.zeros((batch_size, pad_length, features_dim), device=features.device)
             features_sequence = th.cat([features, padding], dim=1)
         else:
-            features_sequence = features[:, :context_length, :]  # Cắt nếu quá dài
+            features_sequence = features[:, :context_length, :]
 
         xlstm_output = xlstm(features_sequence.to("cuda"))
-        xlstm_output = th.flatten(xlstm_output, start_dim=0, end_dim=1)  # (batch_size * seq_length, embedding_dim)
+        # Giữ nguyên kích thước [batch_size, seq_length, embedding_dim] thay vì flatten
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
         return xlstm_output, dummy_states
 
     def forward(self, obs, lstm_states, episode_starts, deterministic=False):
-        # Thêm log để kiểm tra
         print(f"Input obs shape: {obs.shape}")
         features = self.extract_features(obs, lstm_states, episode_starts)
         if not isinstance(features, tuple):
@@ -906,38 +844,22 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
+        # Giảm chiều latent_pi nếu cần trước khi truyền vào action_net
+        latent_pi = latent_pi.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
         return actions, values, log_prob.sum(dim=1), RNNStates(lstm_states_pi, lstm_states_vf)
 
-    def get_distribution(
-        self,
-        obs: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
-        episode_starts: th.Tensor,
-    ) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
+    def get_distribution(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         features = self.extract_features(obs, lstm_states, episode_starts)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
+        latent_pi = latent_pi.mean(dim=1)  # Giảm chiều
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
-    def evaluate_actions(
-        self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
-        """
-        Evaluate actions according to the current policy,
-        given the observations.
-
-        :param obs: Observation.
-        :param actions:
-        :param lstm_states: The last hidden and memory states for the xLSTM.
-        :param episode_starts: Whether the observations correspond to new episodes
-            or not (we reset the xLSTM states in that case).
-        :return: estimated value, log likelihood of taking those actions
-            and entropy of the action distribution.
-        """
+    def evaluate_actions(self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         features = self.extract_features(obs, lstm_states.pi, episode_starts)
         if self.share_features_extractor:
             pi_features = vf_features = features
@@ -951,6 +873,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf = self.critic(vf_features)
 
+        latent_pi = latent_pi.mean(dim=1)  # Giảm chiều
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
@@ -959,45 +882,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
-    def _predict(
-        self,
-        observation: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
-        episode_starts: th.Tensor,
-        deterministic: bool = False,
-    ) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
-        """
-        Get the action according to the policy for a given observation.
-
-        :param observation:
-        :param lstm_states: The last hidden and memory states for the xLSTM.
-        :param episode_starts: Whether the observations correspond to new episodes
-            or not (we reset the xLSTM states in that case).
-        :param deterministic: Whether to use stochastic or deterministic actions
-        :return: Taken action according to the policy and hidden states of the RNN
-        """
+    def _predict(self, observation: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
         distribution, lstm_states = self.get_distribution(observation, lstm_states, episode_starts)
         return distribution.get_actions(deterministic=deterministic), lstm_states
 
-    def predict(
-        self,
-        observation: Union[np.ndarray, dict[str, np.ndarray]],
-        state: Optional[Tuple[np.ndarray, ...]] = None,
-        episode_start: Optional[np.ndarray] = None,
-        deterministic: bool = False,
-    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
-        """
-        Get the policy action from an observation (and optional hidden state).
-        Includes sugar-coating to handle different observations (e.g. normalizing images).
-
-        :param observation: the input observation
-        :param lstm_states: The last hidden and memory states for the xLSTM.
-        :param episode_starts: Whether the observations correspond to new episodes
-            or not (we reset the xLSTM states in that case).
-        :param deterministic: Whether or not to return deterministic actions.
-        :return: the model's action and the next hidden state
-            (used in recurrent policies)
-        """
+    def predict(self, observation: Union[np.ndarray, dict[str, np.ndarray]], state: Optional[Tuple[np.ndarray, ...]] = None, episode_start: Optional[np.ndarray] = None, deterministic: bool = False) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         self.set_training_mode(False)
 
         observation, vectorized_env = self.obs_to_tensor(observation)

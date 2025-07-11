@@ -663,10 +663,17 @@ from finrl.agents.stablebaselines3.stable_baselines3.common.recurrent.type_alias
 from finrl.agents.stablebaselines3.stable_baselines3.common.policies import ActorCriticPolicy
 from torch import nn
 import torch as th
-from xlstm.xlstm_block_stack import xLSTMBlockStack, xLSTMBlockStackConfig
-from xlstm.blocks.mlstm.layer import mLSTMLayerConfig
-from xlstm.blocks.slstm.layer import sLSTMBlockConfig, sLSTMLayerConfig
-from xlstm.blocks.feedforward import FeedForwardConfig
+
+from xlstm import (
+    xLSTMBlockStack,
+    xLSTMBlockStackConfig,
+    mLSTMBlockConfig,
+    mLSTMLayerConfig,
+    sLSTMBlockConfig,
+    sLSTMLayerConfig,
+    FeedForwardConfig,
+)
+
 from typing import Optional, Tuple, Union
 
 class RecurrentActorCriticPolicy(ActorCriticPolicy):
@@ -1025,7 +1032,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         return actions, states
     
-    
+
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     """
     CNN recurrent policy class for actor-critic algorithms (has both policy and value prediction).

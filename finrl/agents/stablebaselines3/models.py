@@ -249,7 +249,7 @@ class DRLAgent:
         model_name,
         policy=None,
         model_kwargs=None,
-        verbose=1,  # Giá trị mặc định là 1
+        verbose=1,
         seed=None,
     ):
         if model_name not in MODELS:
@@ -260,9 +260,11 @@ class DRLAgent:
         if model_kwargs is None:
             model_kwargs = MODEL_KWARGS[model_name]
         else:
-            # Loại bỏ verbose khỏi model_kwargs để tránh xung đột
+            # Loại bỏ verbose và seed khỏi model_kwargs để tránh xung đột
             if "verbose" in model_kwargs:
                 del model_kwargs["verbose"]
+            if "seed" in model_kwargs:
+                del model_kwargs["seed"]
 
         if "action_noise" in model_kwargs:
             n_actions = self.env.action_space.shape[-1]
@@ -283,8 +285,8 @@ class DRLAgent:
         return MODELS[model_name](
             policy=policy,
             env=self.env,
-            verbose=verbose,  # Sử dụng verbose từ tham số hàm
-            seed=seed,
+            verbose=verbose,
+            seed=seed,  # Sử dụng seed từ tham số hàm
             **model_kwargs,
         )
 

@@ -84,6 +84,7 @@ RE_PPO_PARAMS = {
         "shared_lstm": False,
         "enable_critic_lstm": True,
         "lstm_kwargs": {"dropout": 0.1},
+        "context_length": 61,  # Đặt bằng state_space
     },
     "verbose": 0,
     "seed": None,

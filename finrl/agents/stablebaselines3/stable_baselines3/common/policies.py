@@ -119,16 +119,11 @@ class BaseModel(nn.Module):
         """Helper method to create a features extractor."""
         return self.features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
 
-    def extract_features(self, obs: PyTorchObs, features_extractor: BaseFeaturesExtractor) -> th.Tensor:
-        """
-        Preprocess the observation if needed and extract features.
-
-        :param obs: Observation
-        :param features_extractor: The features extractor to use.
-        :return: The extracted features
-        """
-        preprocessed_obs = preprocess_obs(obs, self.observation_space, normalize_images=self.normalize_images)
-        return features_extractor(preprocessed_obs)
+    def extract_features(self, obs, lstm_states, episode_starts):
+        # Thêm xử lý để khớp kích thước
+        obs = obs.reshape(-1, self.context_length, obs.shape[-1])  # Đảm bảo shape là [batch, seq_len, features]
+        print(f"Reshaped obs shape: {obs.shape}")
+        return super().extract_features(obs, lstm_states, episode_starts)
 
     def _get_constructor_parameters(self) -> dict[str, Any]:
         """

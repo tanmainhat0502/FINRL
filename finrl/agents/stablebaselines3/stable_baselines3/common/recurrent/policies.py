@@ -851,46 +851,26 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
         return xlstm_output, dummy_states
 
-    def forward(
-        self,
-        obs: th.Tensor,
-        lstm_states: RNNStates,
-        episode_starts: th.Tensor,
-        deterministic: bool = False,
-    ) -> tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
-        """
-        Forward pass using xLSTM.
-
-        :param obs: Observation
-        :param lstm_states: Dummy states
-        :param episode_starts: New episode indicators
-        :param deterministic: Whether to use deterministic actions
-        :return: action, value, log_prob, updated states
-        """
-        features = self.extract_features(obs)
-        if self.share_features_extractor:
-            pi_features = vf_features = features
-        else:
-            pi_features, vf_features = features
+    def forward(self, obs, lstm_states, episode_starts, deterministic=False):
+        # Thêm log để kiểm tra
+        print(f"Input obs shape: {obs.shape}")
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        if not isinstance(features, tuple):
+            features = (features, features)
+        pi_features, vf_features = features
+        print(f"Extracted features shape: {pi_features.shape}")
 
         latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.xlstm_actor, self.context_length)
         if self.xlstm_critic is not None:
             latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic, self.context_length)
-        elif self.shared_lstm:
-            latent_vf = latent_pi.detach()
-            lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
         else:
-            latent_vf = self.critic(vf_features)
-            lstm_states_vf = lstm_states_pi
+            latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
-
-        values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
-        return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
+        values = self.value_net(latent_vf)
+        return actions, values, log_prob.sum(dim=1), RNNStates(lstm_states_pi, lstm_states_vf)
 
     def get_distribution(
         self,

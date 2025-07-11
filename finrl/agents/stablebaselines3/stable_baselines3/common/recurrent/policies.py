@@ -759,8 +759,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         if self.enable_critic_lstm:
             self.xlstm_critic = xLSTMBlockStack(cfg).to("cuda")
 
-        # Khởi tạo action_net với kích thước đầu vào 256 (khớp với embedding_dim)
-        self.action_net = nn.Linear(lstm_hidden_size, self.action_dist.projection_size)  # Sử dụng projection_size từ action_dist
+        # Sử dụng 2 * action_space.shape[0] cho DiagGaussianDistribution
+        action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
+        self.action_net = nn.Linear(lstm_hidden_size, 2 * action_dim)
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm
@@ -829,7 +830,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             features_sequence = features[:, :context_length, :]
 
         xlstm_output = xlstm(features_sequence.to("cuda"))
-        # Giữ nguyên kích thước [batch_size, seq_length, embedding_dim] thay vì flatten
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
         return xlstm_output, dummy_states
 
@@ -847,7 +847,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
-        # Giảm chiều latent_pi nếu cần trước khi truyền vào action_net
         latent_pi = latent_pi.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)

@@ -752,9 +752,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Tính action_dim từ action_space
         action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
         self.action_net = nn.Linear(lstm_hidden_size, 2 * action_dim)  # Đầu ra là 2 * action_dim cho mean và log_std
-
-        # Khởi tạo log_std với kích thước khớp với 2 * action_dim
         self.log_std = nn.Parameter(th.ones(1, 2 * action_dim) * log_std_init)
+
+        # Khởi tạo value_net với kích thước đầu vào khớp với lstm_hidden_size
+        self.value_net = nn.Linear(lstm_hidden_size, 1)
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm
@@ -840,8 +841,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
-        latent_pi = latent_pi.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
-        distribution = self._get_action_dist_from_latent(latent_pi)
+        # Giảm chiều latent_vf để khớp với value_net
+        latent_vf = latent_vf.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
+        distribution = self._get_action_dist_from_latent(latent_pi.mean(dim=1))
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
@@ -870,6 +872,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         latent_pi = latent_pi.mean(dim=1)  # Giảm chiều
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        latent_vf = latent_vf.mean(dim=1)  # Giảm chiều
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
         distribution = self._get_action_dist_from_latent(latent_pi)

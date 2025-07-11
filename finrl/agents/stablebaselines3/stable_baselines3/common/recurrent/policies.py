@@ -773,11 +773,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Khởi tạo xLSTM cho actor
         cfg = xLSTMBlockStackConfig(
-            mlstm_block=mLSTMLayerConfig(
+            mlstm_block=mLSTMBlockConfig(
                 mlstm=mLSTMLayerConfig(
-                    conv1d_kernel_size=4,
-                    qkv_proj_blocksize=4,
-                    num_heads=4,
+                    conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4
                 )
             ),
             slstm_block=sLSTMBlockConfig(
@@ -789,10 +787,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                 ),
                 feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
             ),
-            context_length=context_length,
-            num_blocks=n_lstm_layers,
-            embedding_dim=lstm_hidden_size,
+            context_length=256,
+            num_blocks=8,
+            embedding_dim=128,
             slstm_at=[1],
+
         )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 

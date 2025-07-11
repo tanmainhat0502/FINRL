@@ -730,22 +730,25 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.context_length = context_length
 
         cfg = xLSTMBlockStackConfig(
-            mlstm_block=mLSTMLayerConfig(
-                conv1d_kernel_size=4,
-                qkv_proj_blocksize=4,
-                num_heads=4,
+            mlstm_block=mLSTMBlockConfig(
+                mlstm=mLSTMLayerConfig(
+                    conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4
+                )
             ),
-            slstm_block=sLSTMLayerConfig(
-                backend="cuda",
-                num_heads=4,
-                conv1d_kernel_size=4,
-                bias_init="powerlaw_blockdependent",
+            slstm_block=sLSTMBlockConfig(
+                slstm=sLSTMLayerConfig(
+                    backend="cuda",
+                    num_heads=4,
+                    conv1d_kernel_size=4,
+                    bias_init="powerlaw_blockdependent",
+                ),
                 feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
             ),
             context_length=context_length,
             num_blocks=n_lstm_layers,
             embedding_dim=lstm_hidden_size,
             slstm_at=[1],
+
         )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 

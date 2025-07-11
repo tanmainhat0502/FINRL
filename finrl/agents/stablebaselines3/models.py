@@ -103,7 +103,6 @@ class TensorboardCallback(BaseCallback):
 #         self,
 #         model_name,
 #         policy=None,
-#         policy_kwargs=None,
 #         model_kwargs=None,
 #         verbose=1,
 #         seed=None,
@@ -271,9 +270,7 @@ class DRLAgent:
         # Xác định policy dựa trên model_name
         if model_name == "re_ppo":
             policy = RecurrentActorCriticPolicy
-            if policy_kwargs is None:
-                policy_kwargs = {}
-            policy_kwargs["context_length"] = 31  
+            
         else:
             policy = 'MlpPolicy' 
 
@@ -281,7 +278,6 @@ class DRLAgent:
             policy=policy,
             env=self.env,
             verbose=verbose,
-            policy_kwargs=policy_kwargs,
             seed=seed,
             **model_kwargs,
         )

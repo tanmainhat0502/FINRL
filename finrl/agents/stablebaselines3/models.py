@@ -249,7 +249,6 @@ class DRLAgent:
         self,
         model_name,
         policy=None,
-        policy_kwargs=None,
         model_kwargs=None,
         verbose=1,
         seed=None,

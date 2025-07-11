@@ -624,7 +624,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
-        single_hidden_state_shape = (1, self.n_envs, self.policy.lstm_hidden_size)  # Dummy shape
+        # Lấy kích thước ẩn từ policy_kwargs hoặc cấu hình xLSTM
+        lstm_hidden_size = self.policy_kwargs.get('lstm_hidden_size', 256)  # Mặc định 256 nếu không có
+        single_hidden_state_shape = (1, self.n_envs, lstm_hidden_size)
         self._last_lstm_states = RNNStates(
             (
                 th.zeros(single_hidden_state_shape, device=self.device),
@@ -636,7 +638,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             ),
         )
 
-        hidden_state_buffer_shape = (self.n_steps, 1, self.n_envs, self.policy.lstm_hidden_size)
+        hidden_state_buffer_shape = (self.n_steps, 1, self.n_envs, lstm_hidden_size)
 
         self.rollout_buffer = buffer_cls(
             self.n_steps,

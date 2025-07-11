@@ -399,6 +399,8 @@ class DRLEnsembleAgent:
 
         # Xác định policy dựa trên model_name
         if model_name == "re_ppo": policy = RecurrentActorCriticPolicy 
+        else:
+            policy = "MlpPolicy"
         # Loại bỏ policy_kwargs nếu không phải re_ppo hoặc không hợp lệ
         if model_name != "re_ppo" and "policy_kwargs" in temp_model_kwargs:
             temp_model_kwargs.pop("policy_kwargs", None)

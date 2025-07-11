@@ -249,7 +249,7 @@ class DRLAgent:
         model_name,
         policy=None,
         model_kwargs=None,
-        verbose=1,
+        verbose=1,  # Giá trị mặc định là 1
         seed=None,
     ):
         if model_name not in MODELS:
@@ -259,6 +259,10 @@ class DRLAgent:
 
         if model_kwargs is None:
             model_kwargs = MODEL_KWARGS[model_name]
+        else:
+            # Loại bỏ verbose khỏi model_kwargs để tránh xung đột
+            if "verbose" in model_kwargs:
+                del model_kwargs["verbose"]
 
         if "action_noise" in model_kwargs:
             n_actions = self.env.action_space.shape[-1]
@@ -270,14 +274,16 @@ class DRLAgent:
         # Xác định policy dựa trên model_name
         if model_name == "re_ppo":
             policy = RecurrentActorCriticPolicy
-            
+            if "policy_kwargs" not in model_kwargs:
+                model_kwargs["policy_kwargs"] = {}
+            model_kwargs["policy_kwargs"]["context_length"] = 31  # Thêm context_length
         else:
-            policy = 'MlpPolicy' 
+            policy = 'MlpPolicy'
 
         return MODELS[model_name](
             policy=policy,
             env=self.env,
-            verbose=verbose,
+            verbose=verbose,  # Sử dụng verbose từ tham số hàm
             seed=seed,
             **model_kwargs,
         )

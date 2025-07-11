@@ -787,9 +787,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                 ),
                 feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu"),
             ),
-            context_length=256,
-            num_blocks=8,
-            embedding_dim=128,
+            context_length=context_length,
+            num_blocks=n_lstm_layers,
+            embedding_dim=lstm_hidden_size,  # Đảm bảo khớp với lstm_hidden_size
             slstm_at=[1],
 
         )
@@ -829,27 +829,29 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         )
 
     def extract_features(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor] = None, episode_starts: th.Tensor = None) -> th.Tensor:
-        """
-        Extract features from observations for xLSTM processing.
-
-        :param obs: Observation tensor (e.g., [batch_size, context_length])
-        :param lstm_states: LSTM hidden states (dummy for xLSTM)
-        :param episode_starts: Indicates new episodes (ignored for xLSTM)
-        :return: Processed features tensor
-        """
-        # Kiểm tra và định hình lại obs
         if obs.dim() == 1:
-            obs = obs.unsqueeze(0)  # [1] -> [1, 1]
-        elif obs.dim() == 2 and obs.shape[1] != self.context_length:
-            # Nếu chiều sequence không khớp, pad hoặc cắt
+            obs = obs.unsqueeze(0).unsqueeze(-1)  # [1] -> [1, 1, 1]
+        elif obs.dim() == 2:
+            obs = obs.unsqueeze(-1)  # [1, 31] -> [1, 31, 1]
+        elif obs.dim() == 3 and obs.shape[2] == 1:
+            pass  # Đã đúng định dạng
+        else:
+            raise ValueError(f"Unexpected obs shape: {obs.shape}")
+
+        # Mở rộng feature dimension lên lstm_hidden_size nếu cần
+        if obs.shape[2] != self.lstm_output_dim:
+            obs = obs.expand(-1, -1, self.lstm_output_dim)
+
+        if obs.shape[1] != self.context_length:
             if obs.shape[1] < self.context_length:
                 pad_length = self.context_length - obs.shape[1]
-                padding = th.zeros((obs.shape[0], pad_length), device=obs.device)
+                padding = th.zeros((obs.shape[0], pad_length, obs.shape[2]), device=obs.device)
                 obs = th.cat([obs, padding], dim=1)
             else:
-                obs = obs[:, :self.context_length]
+                obs = obs[:, :self.context_length, :]
+
         print(f"Extracted features shape: {obs.shape}")
-        return obs  # Trả về obs đã định hình
+        return obs
 
     @staticmethod
     def _process_sequence(

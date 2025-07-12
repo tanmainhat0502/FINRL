@@ -153,6 +153,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             use_sde=self.use_sde,
             **self.policy_kwargs,
         )
+        
         self.policy = self.policy.to(self.device)
 
         # We assume that LSTM for the actor and the critic

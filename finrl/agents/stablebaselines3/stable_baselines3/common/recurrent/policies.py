@@ -221,9 +221,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                     (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[1],
                 ),
             )
-            print("hidden Shape", hidden.shape)
-            print("lstm_states SHAPE 1", lstm_states[0].shape)
-            print("lstm_states SHAPE 2", lstm_states[1].shape)
+        
             lstm_output += [hidden]
 
         # Sequence to batch

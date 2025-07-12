@@ -804,8 +804,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     # Convert discrete action from float to long
                     actions = rollout_data.actions.long().flatten()
 
-                # Convert mask from float to bool
-                mask = rollout_data.mask > 1e-8
+                # Convert mask from float to bool and add batch dimension
+                mask = rollout_data.mask > 1e-8  # Kích thước ban đầu [seq_length]
+                if mask.dim() == 1:
+                    mask = mask.unsqueeze(0)  # Thêm chiều batch size [1, seq_length]
 
                 values, log_prob, entropy = self.policy.evaluate_actions(
                     rollout_data.observations,

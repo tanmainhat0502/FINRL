@@ -751,8 +751,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Tính action_dim từ action_space
         action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
-        self.action_net = nn.Linear(lstm_hidden_size, action_dim)  # Chỉ sử dụng action_dim thay vì 2 * action_dim
-        self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)  # Điều chỉnh log_std
+        self.action_net = nn.Linear(lstm_hidden_size, action_dim)  # Chỉ sử dụng action_dim
+        self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)
 
         # Khởi tạo value_net với kích thước đầu vào khớp với lstm_hidden_size
         self.value_net = nn.Linear(lstm_hidden_size, 1)
@@ -928,6 +928,34 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             actions = actions.squeeze(axis=0)
 
         return actions, states
+
+    def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor) -> th.Tensor:
+        """
+        Predict the value for a given observation using the critic network.
+        Args:
+            obs (th.Tensor): Observation tensor
+            lstm_states (Tuple[th.Tensor, th.Tensor]): LSTM hidden and cell states
+            episode_starts (th.Tensor): Indicates the start of episodes
+        Returns:
+            th.Tensor: Predicted value
+        """
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        if not isinstance(features, tuple):
+            features = (features, features)
+        _, vf_features = features
+
+        if self.xlstm_critic is not None:
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic, self.context_length)
+        elif self.shared_lstm:
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states.pi, episode_starts, self.xlstm_actor, self.context_length)
+        else:
+            latent_vf = self.critic(vf_features)
+
+        latent_vf = latent_vf.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
+        if self.mlp_extractor is not None:
+            latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        values = self.value_net(latent_vf)
+        return values
 
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     """

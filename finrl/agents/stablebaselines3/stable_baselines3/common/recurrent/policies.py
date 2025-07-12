@@ -740,6 +740,113 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         )
 
+        Lỗi TypeError: zeros_like(): argument 'input' (position 1) must be Tensor, not tuple xảy ra trong phương thức _process_sequence của RecurrentActorCriticPolicy khi gọi th.zeros_like(lstm_states[0]) và th.zeros_like(lstm_states[1]). Nguyên nhân là lstm_states được định nghĩa là Tuple[th.Tensor, ...], nhưng trong thực tế, nó có thể là một tuple chứa nhiều hơn hai tensor (hoặc không phải là tuple hai phần tử như (hidden, cell)), dẫn đến lỗi khi cố gắng truy cập chỉ số [0] và [1]. Hiện tại là 10:05 AM +07, ngày 12/07/2025. Dưới đây là cách phân tích và khắc phục lỗi này trên Kaggle.
+
+1. Phân tích lỗi
+Nguyên nhân:
+Trong phương thức _process_sequence, dummy_states được tạo bằng cách gọi th.zeros_like(lstm_states[0]) và th.zeros_like(lstm_states[1]), giả định lstm_states là tuple hai phần tử (thường là (hidden_state, cell_state)).
+Tuy nhiên, định nghĩa RNNStates trong type_aliases.py chỉ định pi và vf là tuple[th.Tensor, ...], và khi truyền vào, lstm_states có thể là một tuple lớn hơn (ví dụ: chứa nhiều trạng thái từ nhiều lớp LSTM hoặc từ cả pi và vf được gộp lại).
+Lỗi xảy ra vì lstm_states không phải là tuple hai phần tử cố định, dẫn đến việc truy cập [0] và [1] không hợp lệ.
+Bối cảnh:
+Log Extracted features shape: torch.Size([1, 61, 256]) cho thấy đầu ra của extract_features là đúng.
+lstm_states được truyền từ forward hoặc collect_rollouts, và cách xử lý trong _process_sequence không khớp với cấu trúc thực tế của nó.
+2. Giải pháp khắc phục
+Để sửa lỗi, chúng ta cần:
+
+Kiểm tra cấu trúc thực tế của lstm_states và điều chỉnh cách tạo dummy_states sao cho linh hoạt.
+Đảm bảo lstm_states được xử lý đúng, dựa trên số lượng tensor trong tuple.
+Bước 1: Cập nhật RecurrentActorCriticPolicy
+Sửa mã để xử lý lstm_states một cách linh hoạt, đặc biệt trong _process_sequence:
+
+python
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+from finrl.agents.stablebaselines3.stable_baselines3.common.policies import ActorCriticPolicy
+from torch import nn
+import torch as th
+from xlstm.xlstm_block_stack import xLSTMBlockStack, xLSTMBlockStackConfig
+from xlstm.blocks.mlstm.layer import mLSTMLayerConfig
+from xlstm.blocks.slstm.layer import sLSTMLayerConfig
+from xlstm.blocks.feedforward import FeedForwardConfig
+from typing import Optional, Tuple, Union
+from stable_baselines3.common.distributions import DiagGaussianDistribution
+
+class RecurrentActorCriticPolicy(ActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        lr_schedule: Schedule,
+        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
+        ortho_init: bool = True,
+        use_sde: bool = False,
+        log_std_init: float = 0.0,
+        full_std: bool = True,
+        use_expln: bool = False,
+        squash_output: bool = False,
+        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        share_features_extractor: bool = True,
+        normalize_images: bool = True,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        lstm_hidden_size: int = 256,
+        n_lstm_layers: int = 1,
+        shared_lstm: bool = False,
+        enable_critic_lstm: bool = True,
+        lstm_kwargs: Optional[dict[str, Any]] = None,
+        context_length: int = 61,  # Dựa trên log
+    ):
+        self.lstm_output_dim = lstm_hidden_size
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            net_arch,
+            activation_fn,
+            ortho_init,
+            use_sde,
+            log_std_init,
+            full_std,
+            use_expln,
+            squash_output,
+            features_extractor_class,
+            features_extractor_kwargs,
+            share_features_extractor,
+            normalize_images,
+            optimizer_class,
+            optimizer_kwargs,
+        )
+
+        self.lstm_kwargs = lstm_kwargs or {}
+        self.shared_lstm = shared_lstm
+        self.enable_critic_lstm = enable_critic_lstm
+        self.context_length = context_length
+
+        cfg = xLSTMBlockStackConfig(
+            mlstm_block=mLSTMLayerConfig(
+                conv1d_kernel_size=4,
+                qkv_proj_blocksize=4,
+                num_heads=4,
+            ),
+            slstm_block=sLSTMLayerConfig(
+                backend="cuda",
+                num_heads=4,
+                conv1d_kernel_size=4,
+                bias_init="powerlaw_blockdependent",
+            ),
+            context_length=context_length,
+            num_blocks=n_lstm_layers,
+            embedding_dim=lstm_hidden_size,
+            slstm_at=[1],
+        )
         self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 
         self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)
@@ -824,7 +931,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             features_sequence = features[:, :context_length, :]
 
         xlstm_output = xlstm(features_sequence.to("cuda"))
-        dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
+        # Tạo dummy_states dựa trên số lượng tensor trong lstm_states
+        dummy_states = tuple(th.zeros_like(state) for state in lstm_states)
         return xlstm_output, dummy_states
 
     def forward(self, obs, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor, deterministic: bool = False):
@@ -835,13 +943,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         pi_features, vf_features = features
         print(f"Extracted features shape: {pi_features.shape}")
 
-        # Chuyển tuple lstm_states thành RNNStates
-        lstm_states_pi = lstm_states if self.shared_lstm else lstm_states
-        lstm_states_vf = lstm_states if self.shared_lstm or not self.enable_critic_lstm else lstm_states
-
-        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states_pi, episode_starts, self.xlstm_actor, self.context_length)
+        # Sử dụng lstm_states trực tiếp, không cần chia pi và vf
+        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
         if self.xlstm_critic is not None and not self.shared_lstm:
-            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states_vf, episode_starts, self.xlstm_critic, self.context_length)
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_critic, self.context_length)
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
@@ -856,7 +961,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         if log_prob.dim() == 1:
             log_prob = log_prob.unsqueeze(0)  # Thêm chiều batch nếu cần
         values = self.value_net(latent_vf)
-        return actions, values, log_prob.sum(dim=1), (lstm_states_pi, lstm_states_vf)
+        return actions, values, log_prob.sum(dim=1), lstm_states_pi  # Trả về lstm_states_pi, có thể điều chỉnh nếu cần
 
     def get_distribution(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         features = self.extract_features(obs, lstm_states, episode_starts)

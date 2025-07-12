@@ -129,8 +129,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             num_layers=n_lstm_layers,
             **self.lstm_kwargs,
         )
-        print("self.lstm_kwargs shape", self.lstm_kwargs)
-        exit()
         # For the predict() method, to initialize hidden states
         # (n_lstm_layers, batch_size, lstm_hidden_size)
 

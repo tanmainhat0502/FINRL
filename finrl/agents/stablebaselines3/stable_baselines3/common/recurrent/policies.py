@@ -824,8 +824,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             features_sequence = features[:, :context_length, :]
 
         xlstm_output = xlstm(features_sequence.to("cuda"))
-        # Tạo dummy_states dựa trên số lượng tensor trong lstm_states
-        dummy_states = tuple(th.zeros_like(state) for state in lstm_states)
+        # Tạo dummy_states bằng cách lặp qua các tensor con trong lstm_states
+        dummy_states = ()
+        for state_tuple in lstm_states:
+            if isinstance(state_tuple, tuple):
+                dummy_states += tuple(th.zeros_like(state) for state in state_tuple)
+            else:
+                dummy_states += (th.zeros_like(state_tuple),)
         return xlstm_output, dummy_states
 
     def forward(self, obs, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor, deterministic: bool = False):
@@ -836,7 +841,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         pi_features, vf_features = features
         print(f"Extracted features shape: {pi_features.shape}")
 
-        # Sử dụng lstm_states trực tiếp, không cần chia pi và vf
+        # Sử dụng lstm_states trực tiếp
         latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
         if self.xlstm_critic is not None and not self.shared_lstm:
             latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_critic, self.context_length)
@@ -930,6 +935,34 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             actions = actions.squeeze(axis=0)
 
         return actions, states
+
+    def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> th.Tensor:
+        """
+        Predict the value for a given observation using the critic network.
+        Args:
+            obs (th.Tensor): Observation tensor
+            lstm_states (Tuple[th.Tensor, ...]): LSTM hidden and cell states
+            episode_starts (th.Tensor): Indicates the start of episodes
+        Returns:
+            th.Tensor: Predicted value
+        """
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        if not isinstance(features, tuple):
+            features = (features, features)
+        _, vf_features = features
+
+        if self.xlstm_critic is not None and not self.shared_lstm:
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_critic, self.context_length)
+        elif self.shared_lstm:
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
+        else:
+            latent_vf = self.critic(vf_features)
+
+        latent_vf = latent_vf.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
+        if self.mlp_extractor is not None:
+            latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        values = self.value_net(latent_vf)
+        return values
 
     def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> th.Tensor:
         """

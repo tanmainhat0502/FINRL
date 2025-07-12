@@ -754,7 +754,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.action_net = nn.Linear(lstm_hidden_size, action_dim)
         self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)
 
-        self.value_net = nn.Linear(256, 1)  
+        # Điều chỉnh value_net để khớp với kích thước đầu ra của mlp_extractor (64)
+        self.value_net = nn.Linear(64, 1)  # Dựa trên lỗi trong predict_values
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm
@@ -847,9 +848,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
-        # Giảm chiều latent_pi và latent_vf
+        # Giảm chiều và qua mlp_extractor để nhất quán
         latent_pi = latent_pi.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
         latent_vf = latent_vf.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
+        if self.mlp_extractor is not None:
+            latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+            latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
@@ -865,7 +869,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         features = self.extract_features(obs, lstm_states, episode_starts)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
         latent_pi = latent_pi.mean(dim=1)  # Giảm chiều
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        if self.mlp_extractor is not None:
+            latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
     def evaluate_actions(self, obs: th.Tensor, actions: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
@@ -883,9 +888,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             latent_vf = self.critic(vf_features)
 
         latent_pi = latent_pi.mean(dim=1)  # Giảm chiều
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = latent_vf.mean(dim=1)  # Giảm chiều
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        if self.mlp_extractor is not None:
+            latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+            latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
         distribution = self._get_action_dist_from_latent(latent_pi)
         log_prob = distribution.log_prob(actions)
@@ -963,6 +969,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         values = self.value_net(latent_vf)
         return values
+    
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     """
     CNN recurrent policy class for actor-critic algorithms (has both policy and value prediction).

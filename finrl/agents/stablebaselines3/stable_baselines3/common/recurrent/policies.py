@@ -122,7 +122,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
     
-        
+
         self.lstm_actor = nn.LSTM(
             self.features_dim,
             lstm_hidden_size,
@@ -202,8 +202,15 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # If we don't have to reset the state in the middle of a sequence
         # we can avoid the for loop, which speeds up things
+        print("features_sequence SHAPE", features_sequence.shape)
+        print("lstm_states 1", lstm_states[0].shape)
+        print("lstm_states 2", lstm_states[1].shape)
+
         if th.all(episode_starts == 0.0):
             lstm_output, lstm_states = lstm(features_sequence, lstm_states)
+            print("lstm_output SHAPE", lstm_output.shape)
+            print("lstm_states SHAPE 1", lstm_states[0].shape)
+            print("lstm_states SHAPE 2", lstm_states[1].shape)
             lstm_output = th.flatten(lstm_output.transpose(0, 1), start_dim=0, end_dim=1)
             return lstm_output, lstm_states
 
@@ -218,7 +225,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                     (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[1],
                 ),
             )
+            print("hidden Shape", hidden.shape)
+            print("lstm_states SHAPE 1", lstm_states[0].shape)
+            print("lstm_states SHAPE 2", lstm_states[1].shape)
             lstm_output += [hidden]
+            
         # Sequence to batch
         # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
         lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)
@@ -241,6 +252,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :param deterministic: Whether to sample or use deterministic actions
         :return: action, value and log probability of the action
         """
+
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         if self.share_features_extractor:

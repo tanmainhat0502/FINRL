@@ -751,8 +751,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Tính action_dim từ action_space
         action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
-        self.action_net = nn.Linear(lstm_hidden_size, 2 * action_dim)  # Đầu ra là 2 * action_dim cho mean và log_std
-        self.log_std = nn.Parameter(th.ones(1, 2 * action_dim) * log_std_init)
+        self.action_net = nn.Linear(lstm_hidden_size, action_dim)  # Chỉ sử dụng action_dim thay vì 2 * action_dim
+        self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)  # Điều chỉnh log_std
 
         # Khởi tạo value_net với kích thước đầu vào khớp với lstm_hidden_size
         self.value_net = nn.Linear(lstm_hidden_size, 1)

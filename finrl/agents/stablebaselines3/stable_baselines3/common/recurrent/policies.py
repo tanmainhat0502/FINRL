@@ -778,7 +778,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             device=self.device,
         )
 
-    def extract_features(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor] = None, episode_starts: th.Tensor = None) -> th.Tensor:
+    def extract_features(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, ...] = None, episode_starts: th.Tensor = None) -> th.Tensor:
         if obs.dim() == 1:
             obs = obs.unsqueeze(0).unsqueeze(-1)
         elif obs.dim() == 2:
@@ -805,11 +805,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     @staticmethod
     def _process_sequence(
         features: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: Tuple[th.Tensor, ...],
         episode_starts: th.Tensor,
         xlstm: xLSTMBlockStack,
         context_length: int,
-    ) -> Tuple[th.Tensor, Tuple[th.Tensor, th.Tensor]]:
+    ) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
         if len(features.shape) == 2:
             batch_size, features_dim = features.shape
             features = features.unsqueeze(1)
@@ -827,7 +827,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         dummy_states = (th.zeros_like(lstm_states[0]), th.zeros_like(lstm_states[1]))
         return xlstm_output, dummy_states
 
-    def forward(self, obs, lstm_states, episode_starts, deterministic=False):
+    def forward(self, obs, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor, deterministic: bool = False):
         print(f"Input obs shape: {obs.shape}")
         features = self.extract_features(obs, lstm_states, episode_starts)
         if not isinstance(features, tuple):
@@ -835,9 +835,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         pi_features, vf_features = features
         print(f"Extracted features shape: {pi_features.shape}")
 
-        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.xlstm_actor, self.context_length)
-        if self.xlstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic, self.context_length)
+        # Chuyển tuple lstm_states thành RNNStates
+        lstm_states_pi = lstm_states if self.shared_lstm else lstm_states
+        lstm_states_vf = lstm_states if self.shared_lstm or not self.enable_critic_lstm else lstm_states
+
+        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states_pi, episode_starts, self.xlstm_actor, self.context_length)
+        if self.xlstm_critic is not None and not self.shared_lstm:
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states_vf, episode_starts, self.xlstm_critic, self.context_length)
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
@@ -852,24 +856,24 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         if log_prob.dim() == 1:
             log_prob = log_prob.unsqueeze(0)  # Thêm chiều batch nếu cần
         values = self.value_net(latent_vf)
-        return actions, values, log_prob.sum(dim=1), RNNStates(lstm_states_pi, lstm_states_vf)
+        return actions, values, log_prob.sum(dim=1), (lstm_states_pi, lstm_states_vf)
 
-    def get_distribution(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
+    def get_distribution(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         features = self.extract_features(obs, lstm_states, episode_starts)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
         latent_pi = latent_pi.mean(dim=1)  # Giảm chiều
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
-    def evaluate_actions(self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
-        features = self.extract_features(obs, lstm_states.pi, episode_starts)
+    def evaluate_actions(self, obs: th.Tensor, actions: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        features = self.extract_features(obs, lstm_states, episode_starts)
         if self.share_features_extractor:
             pi_features = vf_features = features
         else:
             pi_features, vf_features = features
-        latent_pi, _ = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.xlstm_actor, self.context_length)
-        if self.xlstm_critic is not None:
-            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic, self.context_length)
+        latent_pi, _ = self._process_sequence(pi_features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
+        if self.xlstm_critic is not None and not self.shared_lstm:
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_critic, self.context_length)
         elif self.shared_lstm:
             latent_vf = latent_pi.detach()
         else:
@@ -889,7 +893,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
-    def _predict(self, observation: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
+    def _predict(self, observation: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
         distribution, lstm_states = self.get_distribution(observation, lstm_states, episode_starts)
         return distribution.get_actions(deterministic=deterministic), lstm_states
 
@@ -929,12 +933,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         return actions, states
 
-    def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor) -> th.Tensor:
+    def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, ...], episode_starts: th.Tensor) -> th.Tensor:
         """
         Predict the value for a given observation using the critic network.
         Args:
             obs (th.Tensor): Observation tensor
-            lstm_states (Tuple[th.Tensor, th.Tensor]): LSTM hidden and cell states
+            lstm_states (Tuple[th.Tensor, ...]): LSTM hidden and cell states
             episode_starts (th.Tensor): Indicates the start of episodes
         Returns:
             th.Tensor: Predicted value
@@ -944,10 +948,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             features = (features, features)
         _, vf_features = features
 
-        if self.xlstm_critic is not None:
-            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.xlstm_critic, self.context_length)
+        if self.xlstm_critic is not None and not self.shared_lstm:
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_critic, self.context_length)
         elif self.shared_lstm:
-            latent_vf, _ = self._process_sequence(vf_features, lstm_states.pi, episode_starts, self.xlstm_actor, self.context_length)
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states, episode_starts, self.xlstm_actor, self.context_length)
         else:
             latent_vf = self.critic(vf_features)
 

@@ -739,7 +739,21 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             slstm_at=[1],
 
         )
+        self.xlstm_actor = xLSTMBlockStack(cfg).to("cuda")
 
+        self.lstm_hidden_state_shape = (1, 1, lstm_hidden_size)
+        self.critic = None
+        self.xlstm_critic = None
+
+        # Khởi tạo xLSTM cho critic nếu enabled
+        if self.enable_critic_lstm:
+            self.xlstm_critic = xLSTMBlockStack(cfg).to("cuda")
+
+        # Tính action_dim từ action_space
+        action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
+        self.action_net = nn.Linear(lstm_hidden_size, action_dim)
+        self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)
+        
         self.value_net = nn.Linear(64, 1)  # Thay đổi in_features thành 64 dựa trên lỗi
 
         assert not (

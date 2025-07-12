@@ -753,8 +753,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         action_dim = action_space.shape[0] if len(action_space.shape) > 0 else action_space.n
         self.action_net = nn.Linear(lstm_hidden_size, action_dim)
         self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)
-        
-        self.value_net = nn.Linear(64, 1)  # Thay đổi in_features thành 64 dựa trên lỗi
+
+        self.value_net = nn.Linear(256, 1)  
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm

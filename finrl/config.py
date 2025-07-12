@@ -76,7 +76,7 @@ RE_PPO_PARAMS = {
     "sde_sample_freq": -1,
     "target_kl": None,
     "stats_window_size": 100,
-    "tensorboard_log": None,
+    "tensorboard_log": "./ppo_tensorboard_logs",
     "policy_kwargs": {
         "net_arch": {"pi": [64, 64], "vf": [64, 64]},
         "lstm_hidden_size": 256,

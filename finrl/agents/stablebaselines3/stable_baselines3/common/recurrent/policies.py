@@ -841,11 +841,16 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf, lstm_states_vf = latent_pi, lstm_states_pi
 
-        # Giảm chiều latent_vf để khớp với value_net
+        # Giảm chiều latent_pi và latent_vf
+        latent_pi = latent_pi.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
         latent_vf = latent_vf.mean(dim=1)  # Giảm từ [1, 61, 256] thành [1, 256]
-        distribution = self._get_action_dist_from_latent(latent_pi.mean(dim=1))
+        distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
+
+        # Đảm bảo log_prob có kích thước phù hợp
+        if log_prob.dim() == 1:
+            log_prob = log_prob.unsqueeze(0)  # Thêm chiều batch nếu cần
         values = self.value_net(latent_vf)
         return actions, values, log_prob.sum(dim=1), RNNStates(lstm_states_pi, lstm_states_vf)
 
@@ -877,6 +882,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         distribution = self._get_action_dist_from_latent(latent_pi)
         log_prob = distribution.log_prob(actions)
+
+        # Đảm bảo log_prob có kích thước phù hợp
+        if log_prob.dim() == 1:
+            log_prob = log_prob.unsqueeze(0)  # Thêm chiều batch nếu cần
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
@@ -919,7 +928,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             actions = actions.squeeze(axis=0)
 
         return actions, states
-    
 
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     """

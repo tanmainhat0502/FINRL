@@ -754,8 +754,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.action_net = nn.Linear(lstm_hidden_size, action_dim)
         self.log_std = nn.Parameter(th.ones(1, action_dim) * log_std_init)
 
-        # Điều chỉnh value_net để khớp với kích thước đầu ra thực tế của latent_vf
-        self.value_net = nn.Linear(64, 1)  # Thay đổi in_features từ 256 thành 64 dựa trên lỗi
+        # Khôi phục value_net về kích thước khớp với latent_vf
+        self.value_net = nn.Linear(256, 1)  # Thay đổi lại in_features thành 256
 
         assert not (
             self.shared_lstm and self.enable_critic_lstm

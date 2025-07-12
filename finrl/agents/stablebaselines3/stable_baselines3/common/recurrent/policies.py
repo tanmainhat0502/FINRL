@@ -969,7 +969,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         values = self.value_net(latent_vf)
         return values
-    
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     """
     CNN recurrent policy class for actor-critic algorithms (has both policy and value prediction).

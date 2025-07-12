@@ -129,6 +129,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             num_layers=n_lstm_layers,
             **self.lstm_kwargs,
         )
+        print("self.lstm_kwargs shape", self.lstm_kwargs)
+        exit()
         # For the predict() method, to initialize hidden states
         # (n_lstm_layers, batch_size, lstm_hidden_size)
 
@@ -202,15 +204,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # If we don't have to reset the state in the middle of a sequence
         # we can avoid the for loop, which speeds up things
-        print("features_sequence SHAPE", features_sequence.shape)
-        print("lstm_states 1", lstm_states[0].shape)
-        print("lstm_states 2", lstm_states[1].shape)
+        
 
         if th.all(episode_starts == 0.0):
             lstm_output, lstm_states = lstm(features_sequence, lstm_states)
-            print("lstm_output SHAPE", lstm_output.shape)
-            print("lstm_states SHAPE 1", lstm_states[0].shape)
-            print("lstm_states SHAPE 2", lstm_states[1].shape)
+           
             lstm_output = th.flatten(lstm_output.transpose(0, 1), start_dim=0, end_dim=1)
             return lstm_output, lstm_states
 
@@ -229,7 +227,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             print("lstm_states SHAPE 1", lstm_states[0].shape)
             print("lstm_states SHAPE 2", lstm_states[1].shape)
             lstm_output += [hidden]
-            
+
         # Sequence to batch
         # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
         lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)

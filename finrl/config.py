@@ -76,10 +76,11 @@ RE_PPO_PARAMS = {
     "sde_sample_freq": -1,
     "target_kl": None,
     "stats_window_size": 100,
+    "tensorboard_log": "TENSORBOARD_LOG_DIR",
     "policy_kwargs": {
         "net_arch": {"pi": [64, 64], "vf": [64, 64]},
         "lstm_hidden_size": 256,
-        "n_lstm_layers": 1,
+        "n_lstm_layers": 8,
         "shared_lstm": False,
         "enable_critic_lstm": True,
         "lstm_kwargs": {"dropout": 0.1},

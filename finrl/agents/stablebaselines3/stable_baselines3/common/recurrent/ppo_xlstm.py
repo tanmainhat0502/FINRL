@@ -95,8 +95,10 @@ class PPOxLSTM(nn.Module):
     return (conv_state, )
 
   def forward(self, seq, state=None):
+    print("Sqe shape", seq.shape)
+    exit()
     try:
-      print(self.ks)
+      ks = self.ks
     except:
       state = None
     seq, state = self.preprocess(seq, state)

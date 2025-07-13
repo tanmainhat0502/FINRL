@@ -62,7 +62,7 @@ class PPOxLSTM(nn.Module):
       }
 
     # n_seq x bs x seq_dim -> bs x n_seq x seq_dim
-    seq = torch.transpose(seq, 0, 1)
+    # seq = torch.transpose(seq, 0, 1)
     return seq, state
 
   def preprocess_mlstm_state(self, mlstm_state):
@@ -119,7 +119,7 @@ class PPOxLSTM(nn.Module):
     conv_state= F.pad(conv_state, pad=(0, self.pad_amount), mode='constant', value=0)
 
     state = (mlstm_state, conv_state)
-    seq = torch.transpose(seq, 0, 1)
+    # seq = torch.transpose(seq, 0, 1)
     return seq, state
   
   def postprocess_mlstm_state(self, mlstm_state):

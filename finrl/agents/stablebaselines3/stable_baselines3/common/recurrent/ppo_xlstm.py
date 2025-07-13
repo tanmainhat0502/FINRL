@@ -16,6 +16,8 @@ from xlstm import (
 class PPOxLSTM(nn.Module):
   def __init__(self, input_size, hidden_size, num_layers, dropout=0):
     super().__init__()
+    self.input_size = input_size
+    
     cfg = xLSTMBlockStackConfig(
       mlstm_block=mLSTMBlockConfig(
           mlstm=mLSTMLayerConfig(

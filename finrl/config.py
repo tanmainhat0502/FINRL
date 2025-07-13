@@ -63,7 +63,7 @@ RE_PPO_PARAMS = {
     "learning_rate": 0.0003,
     "n_steps": 2048,
     "batch_size": 128,
-    "n_epochs": 2,
+    "n_epochs": 100,
     "gamma": 0.99,
     "gae_lambda": 0.95,
     "clip_range": 0.2,

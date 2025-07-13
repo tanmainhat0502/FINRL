@@ -17,7 +17,7 @@ class PPOxLSTM(nn.Module):
   def __init__(self, input_size, hidden_size, num_layers, dropout=0):
     super().__init__()
     self.input_size = input_size
-    
+
     cfg = xLSTMBlockStackConfig(
       mlstm_block=mLSTMBlockConfig(
           mlstm=mLSTMLayerConfig(
@@ -95,6 +95,10 @@ class PPOxLSTM(nn.Module):
     return (conv_state, )
 
   def forward(self, seq, state=None):
+    try:
+      print(self.ks)
+    except:
+      state = None
     seq, state = self.preprocess(seq, state)
 
     seq = self.input_proj(seq)
